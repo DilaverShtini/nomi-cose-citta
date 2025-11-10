@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "nomicosecitta"
+version = "0.1.0"
+description = "Distributed version of 'Nomi, Cose, Città'"
+authors = ["Chiara Giangiulli <chiara.giangiulli@studio.unibo.it>", "Dilaver Shtini <dilaver.shtini@studio.unibo.it>", "Giovanni Pisoni <giovanni.pisoni@studio.unibo.it>"]
+license = "GPL-3.0-or-later"
+readme = "README.md"
+packages = [{ include = "nomicosecitta" }]
+
+[tool.poetry.dependencies]
+python = "^3.13"
+aiohttp = "^3.13.2"
+rich = "^14.2.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
