@@ -12,6 +12,7 @@ from src.common.constants import DEFAULT_SERVER_HOST, DEFAULT_SERVER_PORT
 
 def parse_args():
     """Parse command line arguments."""
+
     parser = argparse.ArgumentParser(
         description="Nomi, Cose, Città - Game Server"
     )
@@ -38,7 +39,14 @@ def parse_args():
 
 
 def run_server(host, port):
-    """Start the game server."""
+    """
+    Start the game server.
+    
+    Args:
+        host: Server host address.
+        port: Server port.
+    """
+
     server = GameServer(host, port)
     server.start()
 
@@ -46,7 +54,12 @@ def run_server(host, port):
 def run_with_replication(host, port, role):
     """
     Start server with Primary/Backup replication.
-    
+
+    Args:
+        host: Server host address.
+        port: Server port.
+        role: 'auto', 'primary', or 'backup'
+
     To be implemented in Sprint 4:
     - 'auto': Use heartbeat lock to determine role
     - 'primary': Force primary role

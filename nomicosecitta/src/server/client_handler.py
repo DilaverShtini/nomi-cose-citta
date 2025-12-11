@@ -33,8 +33,6 @@ class ClientHandler(threading.Thread):
     def run(self):
         """
         Main loop to handle client communication.
-        
-        :param self: ClientHandler instance
         """
 
         print(f"[NEW CONNECTION] {self.addr} connected.")
@@ -65,9 +63,8 @@ class ClientHandler(threading.Thread):
     def send(self, msg): 
         """
         Sends a string to the client (encoded in bytes).
-        
-        :param self: ClientHandler instance
-        :param msg: String message to send
+        Args:
+            msg: String message to send
         """
 
         try:
@@ -78,8 +75,6 @@ class ClientHandler(threading.Thread):
     def close_connection(self):
         """
         Closes resources and deregisteres from the server.
-        
-        :param self: ClientHandler instance
         """
 
         if self.running:

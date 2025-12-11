@@ -22,8 +22,6 @@ class GameServer:
     def start(self):
         """ 
         Start the TCP server and accept client connections.
-        
-        :param self: GameServer instance
         """
 
         print(f"[STARTING] Server starting on {self.host}:{self.port}...")
@@ -64,10 +62,11 @@ class GameServer:
             self.stop()
 
     def remove_client(self, handler):
-        """ Remove a client from the active list.
+        """ 
+        Remove a client from the active list.
         
-        :param self: GameServer instance
-        :param handler: ClientHandler instance to remove
+        Args:
+            handler: ClientHandler instance to remove
         """
         with self.lock:
             if handler in self.clients:
@@ -78,9 +77,9 @@ class GameServer:
         """
         Send a message to all connected clients.
         
-        :param self: GameServer instance
-        :param msg: String message to broadcast
-        :param exclude: ClientHandler instance to exclude from broadcast
+        Args:
+            msg: String message to broadcast
+            exclude: ClientHandler instance to exclude from broadcast
         """
         with self.lock:
             for client in self.clients:
@@ -91,8 +90,10 @@ class GameServer:
         """
         Find a client by username.
         
-        :param username: Username string to search for
-        :return: ClientHandler instance or None if not found
+        Args:
+            username: Username string to search for
+        Returns:
+            ClientHandler instance or None if not found
         """
         with self.lock:
             for client in self.clients:
@@ -118,7 +119,10 @@ class GameServer:
         """
         Check is a username is already in use.
         
-        :param username: Username string to check
+        Args:
+            username: Username string to check
+        Returns:
+            bool: True if taken, False otherwise
         """
         return username in self.get_active_usernames()
     
