@@ -1,5 +1,4 @@
-import socket
-import threading
+import asyncio
 
 from src.common.constants import BUFFER_SIZE, ENCODING, DEFAULT_SERVER_HOST, DEFAULT_SERVER_PORT
 
@@ -8,48 +7,52 @@ class NetworkHandler:
     Handles TCP conncetion with the game server.
 
     Manages connecton, sending messages, and receiving message
-    in a background thread.
+    in a background task.
 
     Attributes:
         host: Server host address.
         port: Server port.
-        socket: TCP socket connection.
+        reader: AsyncIO StreamReader.
+        writer: AsyncIO StreamWriter.
         running: Flag to control the receive loop.
         on_message: Callback function called when a message is received.
         on_disconnect: Callback function called on disconnection.
     """
 
-    def __init__(self, host = DEFAULT_SERVER_HOST, port = DEFAULT_SERVER_PORT):
+    def __init__(self, host=DEFAULT_SERVER_HOST, port=DEFAULT_SERVER_PORT):
         self.host = host
         self.port = port
-        self.socket = None
+        self.reader = None
+        self.writer = None
         self.running = False
-        self.receive_thread = None
+        self.receive_task = None
 
         # Callbacks
-        self.on_message = None # called wehn a message is received: on_message(data: str)
-        self.on_disconnect = None # called on disconnection: on_disconnect(reason: str)
+        self.on_message = None  # called when a message is received: on_message(data: str)
+        self.on_disconnect = None  # called on disconnection: on_disconnect(reason: str)
 
-    def connect(self):
+    async def connect(self):
         """
         Connect to the game server.
         
         Returns:
-            bool: True if connection successful, False otherwise.
+            bool: True if connection is successful, False otherwise.
         """
+
         if self.running:
             print("[NetworkHandler] Already connected.")
             return True
         
         try:
-            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.socket.connect((self.host, self.port))
+            self.reader, self.writer = await asyncio.open_connection(
+                self.host, 
+                self.port
+            )
             self.running = True
 
-            self.receive_thread = threading.Thread(target = self._receive_loop, daemon = True)
-            self.receive_thread.start()
+            self.receive_task = asyncio.create_task(self._receive_loop())
 
-            print(f"[NetworkHandler] Connected to server at {self.host}:{self.port}.")
+            print(f"[NetworkHandler] Connected to server at {self.host}:{self.port}")
             return True
         
         except ConnectionRefusedError:
@@ -58,8 +61,8 @@ class NetworkHandler:
         except Exception as e:
             print(f"[NetworkHandler] Connection error: {e}")
             return False
-
-    def disconnect(self):
+        
+    async def disconnect(self):
         """
         Disconnect from the game server.
         """
@@ -68,20 +71,25 @@ class NetworkHandler:
         
         self.running = False
 
-        if self.socket:
+        if self.receive_task:
+            self.receive_task.cancel()
             try:
-                self.socket.shutdown(socket.SHUT_RDWR)
+                await self.receive_task
+            except asyncio.CancelledError:
+                pass
+
+        if self.writer:
+            try:
+                self.writer.close()
+                await self.writer.wait_closed()
             except:
                 pass
-            try:
-                self.socket.close()
-            except:
-                pass
-            self.socket = None
+            self.writer = None
+            self.reader = None
         
         print("[NetworkHandler] Disconnected from server.")
 
-    def send(self, message):
+    async def send(self, message):
         """
         Send a message to the server.
         
@@ -91,27 +99,28 @@ class NetworkHandler:
         Returns:
             bool: True if sent successfully, False otherwise.
         """
-        if not self.running or not self.socket:
+        if not self.running or not self.writer:
             print("[NetworkHandler] Not connected.")
             return False
         
         try:
-            self.socket.sendall(message.encode(ENCODING))
+            self.writer.write(message.encode(ENCODING))
+            await self.writer.drain()
             return True
         except Exception as e:
             print(f"[NetworkHandler] Send error: {e}")
-            self._handle_disconnect("Send error")
+            await self._handle_disconnect("Send error")
             return False
         
-    def _receive_loop(self):
+    async def _receive_loop(self):
         """
-        Background thread loop to receive messages from the server.
+        Background task to receive messages from the server.
         """
         while self.running:
             try:
-                data = self.socket.recv(BUFFER_SIZE)
+                data = await self.reader.read(BUFFER_SIZE)
                 if not data:
-                    self._handle_disconnect("Server closed connection")
+                    await self._handle_disconnect("Server closed connection")
                     break
                 
                 message = data.decode(ENCODING)
@@ -121,19 +130,17 @@ class NetworkHandler:
                     print(f"[NetworkHandler] Received: {message}")
             
             except ConnectionResetError:
-                self._handle_disconnect("Connection reset by server")
+                await self._handle_disconnect("Connection reset by server")
                 break
-            except OSError:
-                if self.running:
-                    self._handle_disconnect("Connection lost")
+            except asyncio.CancelledError:
                 break
             except Exception as e:
                 if self.running:
                     print(f"[NetworkHandler] Receive error: {e}")
-                    self._handle_disconnect(str(e))
+                    await self._handle_disconnect(str(e))
                 break
 
-    def _handle_disconnect(self, reason):
+    async def _handle_disconnect(self, reason):
         """
         Handle disconnection from the server.
         
@@ -143,12 +150,14 @@ class NetworkHandler:
         was_running = self.running
         self.running = False
 
-        if self.socket:
+        if self.writer:
             try:
-                self.socket.close()
+                self.writer.close()
+                await self.writer.wait_closed()
             except:
                 pass
-            self.socket = None
+            self.writer = None
+            self.reader = None
 
         if was_running and self.on_disconnect:
             self.on_disconnect(reason)
@@ -160,7 +169,7 @@ class NetworkHandler:
         Returns:
             bool: True if connected, False otherwise.
         """
-        return self.running and self.socket is not None
+        return self.running and self.writer is not None
     
     @property
     def server_address(self):
