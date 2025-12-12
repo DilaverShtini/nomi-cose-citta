@@ -1,6 +1,7 @@
 import sys
 import os
 import argparse
+import asyncio
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.dirname(os.path.dirname(current_dir))
@@ -18,27 +19,27 @@ def parse_args():
     )
     parser.add_argument(
         "--host",
-        type=str,
-        default=DEFAULT_SERVER_HOST,
-        help=f"Server host (default: {DEFAULT_SERVER_HOST})"
+        type = str,
+        default = DEFAULT_SERVER_HOST,
+        help = f"Server host (default: {DEFAULT_SERVER_HOST})"
     )
     parser.add_argument(
         "--port", "-p",
-        type=int,
-        default=DEFAULT_SERVER_PORT,
-        help=f"Server port (default: {DEFAULT_SERVER_PORT})"
+        type = int,
+        default = DEFAULT_SERVER_PORT,
+        help = f"Server port (default: {DEFAULT_SERVER_PORT})"
     )
     parser.add_argument(
         "--role",
-        type=str,
-        choices=["auto", "primary", "backup"],
-        default="auto",
-        help="Server role: auto (default), primary, or backup"
+        type = str,
+        choices = ["auto", "primary", "backup"],
+        default = "auto",
+        help = "Server role: auto (default), primary, or backup"
     )
     return parser.parse_args()
 
 
-def run_server(host, port):
+async def run_server(host, port):
     """
     Start the game server.
     
@@ -48,10 +49,15 @@ def run_server(host, port):
     """
 
     server = GameServer(host, port)
-    server.start()
+    try:
+        await server.start()
+    except KeyboardInterrupt:
+        print("\n[SHUTDOWN] Server stopping by user request...")
+    finally:
+        await server.stop()
 
 
-def run_with_replication(host, port, role):
+async def run_with_replication(host, port, role):
     """
     Start server with Primary/Backup replication.
 
@@ -73,12 +79,11 @@ def run_with_replication(host, port, role):
     # For now, just run as standalone server
     print(f"[INFO] Role '{role}' requested - replication not yet implemented")
     print(f"[INFO] Running as standalone server...")
-    run_server(host, port)
+    await run_server(host, port)
 
-
-if __name__ == "__main__":
+def main():
     args = parse_args()
-    
+
     print("=" * 50)
     print("  NOMI, COSE, CITTÀ - Game Server")
     print("=" * 50)
@@ -89,7 +94,10 @@ if __name__ == "__main__":
     
     if args.role == "auto":
         # Default: run without replication for now
-        run_server(args.host, args.port)
+        asyncio.run(run_server(args.host, args.port))
     else:
         # Primary/Backup mode requested
-        run_with_replication(args.host, args.port, args.role)
+        asyncio.run(run_with_replication(args.host, args.port, args.role))
+
+if __name__ == "__main__":
+    main()

@@ -1,5 +1,4 @@
-import socket
-import threading
+import asyncio
 
 from src.common.constants import DEFAULT_SERVER_HOST, DEFAULT_SERVER_PORT
 from src.server.client_handler import ClientHandler
@@ -14,52 +13,42 @@ class GameServer:
     def __init__(self, host = DEFAULT_SERVER_HOST, port = DEFAULT_SERVER_PORT):
         self.host = host
         self.port = port
-        self.server_socket = None
+        self.server = None
         self.clients = [] # list of ClientHandler
-        self.lock = threading.Lock() # thread-safe access to clients list
         self.running = False
 
-    def start(self):
+    async def start(self):
         """ 
         Start the TCP server and accept client connections.
         """
 
         print(f"[STARTING] Server starting on {self.host}:{self.port}...")
 
-        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.server = await asyncio.start_server(
+            self._handle_connection,
+            self.host,
+            self.port
+        )
+        self.running = True
 
-        try:
-            self.server_socket.bind((self.host, self.port))
-            self.server_socket.listen(5)
-            self.running = True
-            print(f"[LISTENING] Server is listening...")
+        print(f"[LISTENING] Server is listening...")
 
-            while self.running:
-                try:
-                    self.server_socket.settimeout(1.0) # Allow periodic checks of self.running
-                    conn, addr = self.server_socket.accept()
-                    
-                    handler = ClientHandler(conn, addr, self)
-                    with self.lock:
-                        self.clients.append(handler)
-                    handler.start()
+        async with self.server:
+            await self.server.serve_forever()
 
-                    print(f"[ACTIVE CONNECTIONS] {len(self.clients)}")
-                    
-                except socket.timeout:
-                    continue
-                except OSError as e:
-                    if self.running:
-                        print(f"[ERROR] Accept failed: {e}")
-                    break
+    async def _handle_connection(self, reader, writer):
+        """
+        Called for each new client connection.
         
-        except KeyboardInterrupt:
-            print("\n[SHUTDOWN] Server stopping by user request...")
-        except Exception as e:
-            print(f"[CRITICAL ERROR] Server loop failed: {e}")
-        finally:
-            self.stop()
+        Args:
+            reader: AsyncIO StreamReader
+            writer: AsyncIO StreamWriter
+        """
+        handler = ClientHandler(reader, writer, self)
+        self.clients.append(handler)
+        print(f"[ACTIVE CONNECTIONS] {len(self.clients)}")
+
+        await handler.handle()
 
     def remove_client(self, handler):
         """ 
@@ -68,12 +57,11 @@ class GameServer:
         Args:
             handler: ClientHandler instance to remove
         """
-        with self.lock:
-            if handler in self.clients:
-                self.clients.remove(handler)
-                print(f"[MANAGEMENT] Client removed. Remaining: {len(self.clients)}")
+        if handler in self.clients:
+            self.clients.remove(handler)
+            print(f"[MANAGEMENT] Client removed. Remaining: {len(self.clients)}")
 
-    def broadcast(self, msg, exclude = None):
+    async def broadcast(self, msg, exclude = None):
         """
         Send a message to all connected clients.
         
@@ -81,10 +69,9 @@ class GameServer:
             msg: String message to broadcast
             exclude: ClientHandler instance to exclude from broadcast
         """
-        with self.lock:
-            for client in self.clients:
-                if client != exclude:
-                    client.send(msg)
+        for client in self.clients:
+            if client != exclude:
+                client.send(msg)
 
     def get_client_by_username(self, username):
         """
@@ -95,25 +82,22 @@ class GameServer:
         Returns:
             ClientHandler instance or None if not found
         """
-        with self.lock:
-            for client in self.clients:
-                if client.username == username:
-                    return client
+        for client in self.clients:
+            if client.username == username:
+                return client
         return None
     
     def get_active_count(self):
         """
         Returns the number of active connected clients.
         """
-        with self.lock:
-            return len(self.clients)
+        return len(self.clients)
         
     def get_active_usernames(self):
         """
         Returns set of currently connected usernames.
         """
-        with self.lock:
-            return {client.username for client in self.clients if client.username}
+        return {client.username for client in self.clients if client.username}
         
     def is_username_taken(self, username):
         """
@@ -130,28 +114,25 @@ class GameServer:
         """
         Returns dict mapping username -> p2p_address.
         """
-        with self.lock:
-            return {
-                client.username: client.p2p_address
-                for client in self.clients
-                if client.username and client.p2p_address
-            }
+        return {
+            client.username: client.p2p_address
+            for client in self.clients
+            if client.username and client.p2p_address
+        }
 
-    def stop(self):
+    async def stop(self):
         """
         Closes the main socket and all client connections.
         """
 
         self.running = False
-        if self.server_socket:
-            try:
-                self.server_socket.close()
-            except:
-                pass
-        
-        with self.lock:
-            for client in list(self.clients):
-                client.close_connection()
-            self.clients.clear()
+
+        for client in list(self.clients):
+            await client.close_connection()
+        self.clients.clear()
+
+        if self.server:
+            self.server.close()
+            await self.server.wait_closed()
 
         print("[SHUTDOWN] Server has been stopped.")
