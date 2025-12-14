@@ -1,6 +1,7 @@
 import asyncio
 
 from src.common.constants import DEFAULT_SERVER_HOST, DEFAULT_SERVER_PORT
+from src.common import Message
 from src.server.client_handler import ClientHandler
 
 class GameServer:
@@ -61,17 +62,20 @@ class GameServer:
             self.clients.remove(handler)
             print(f"[MANAGEMENT] Client removed. Remaining: {len(self.clients)}")
 
-    async def broadcast(self, msg, exclude = None):
+    async def broadcast(self, msg: Message, exclude = None):
         """
         Send a message to all connected clients.
         
         Args:
-            msg: String message to broadcast
+            msg: a Message to broadcast
             exclude: ClientHandler instance to exclude from broadcast
         """
+        tasks = []
         for client in self.clients:
             if client != exclude:
-                client.send(msg)
+                tasks.append(asyncio.create_task(client.send(msg)))
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
 
     def get_client_by_username(self, username):
         """
