@@ -41,11 +41,17 @@ class ClientController:
     async def _async_connect(self):
         success = await self.network.connect()
         if success:
-            self.root.after(0, self.gui.show_game)
-            self.root.after(0, lambda: self.gui.append_log(f"[SYSTEM] Connesso come {self.username}"))
-
+            self.root.after(0, self.gui.show_lobby)
+            
+            # 2. (TASK LOBBY) Aggiungiamo noi stessi alla lista graficamente
+            # NOTA: Quando il server sarà pronto, questo arriverà via rete.
+            # Per ora lo facciamo "finto" per far vedere che la GUI funziona.
+            mock_list = [self.username] 
+            self.root.after(0, lambda: self.gui.update_player_list(mock_list))
+            
+            self.root.after(0, lambda: self.gui.append_log(f"[SYSTEM] Benvenuto nella Lobby, {self.username}!"))
         else:
-            self.root.after(0, lambda: messagebox.showerror("Errore", "Impossibile connettersi al server"))
+            self.root.after(0, lambda: messagebox.showerror("Errore", "Server non trovato"))
 
     def send_message(self, msg):
         if self.network and self.network.is_connected():
@@ -53,7 +59,6 @@ class ClientController:
             self.gui.append_log(f"TU: {msg}")
 
     def handle_incoming_message(self, msg):
-        # Tkinter non è thread-safe, bisogna usare root.after per 'spostare' 
         self.root.after(0, lambda: self.gui.append_log(f"SERVER: {msg}"))
 
     def handle_disconnection(self, reason):
