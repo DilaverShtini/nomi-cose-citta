@@ -10,6 +10,7 @@ class MessageType(StrEnum):
     CMD_SUBMIT= auto()
 
     # server -> client
+    EVT_LOBBY_UPDATE = auto()
     EVT_PEER_MAP = auto()
     EVT_ROUND_START = auto()
     EVT_VOTING_START = auto()
