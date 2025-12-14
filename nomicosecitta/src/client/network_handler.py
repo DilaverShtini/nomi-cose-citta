@@ -1,6 +1,7 @@
 import asyncio
 
 from src.common.constants import BUFFER_SIZE, ENCODING, DEFAULT_SERVER_HOST, DEFAULT_SERVER_PORT
+from src.common import Message
 
 class NetworkHandler:
     """
@@ -89,12 +90,12 @@ class NetworkHandler:
         
         print("[NetworkHandler] Disconnected from server.")
 
-    async def send(self, message):
+    async def send(self, message : Message):
         """
         Send a message to the server.
         
         Args:
-            message: String message to send.
+            message: a Message to send.
             
         Returns:
             bool: True if sent successfully, False otherwise.
@@ -104,7 +105,9 @@ class NetworkHandler:
             return False
         
         try:
-            self.writer.write(message.encode(ENCODING))
+            json_str = message.to_json()
+            data = (json_str + "\n").encode(ENCODING)
+            self.writer.write(data)
             await self.writer.drain()
             return True
         except Exception as e:
@@ -118,16 +121,22 @@ class NetworkHandler:
         """
         while self.running:
             try:
-                data = await self.reader.read(BUFFER_SIZE)
+                data = await self.reader.readline()
                 if not data:
                     await self._handle_disconnect("Server closed connection")
                     break
-                
-                message = data.decode(ENCODING)
-                if self.on_message:
-                    self.on_message(message)
-                else:
-                    print(f"[NetworkHandler] Received: {message}")
+                json_msg = data.decode(ENCODING).strip()
+                if not json_msg:
+                    continue
+                try:
+                    message = Message.from_json(json_msg)
+                    if self.on_message:
+                        self.on_message(message)
+                    else:
+                        print(f"[NetworkHandler] Received: {message.type}")
+
+                except ValueError as e:
+                    print(f"[NetworkHandler] JSON error: {e}")
             
             except ConnectionResetError:
                 await self._handle_disconnect("Connection reset by server")
