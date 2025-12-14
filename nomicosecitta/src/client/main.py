@@ -47,7 +47,7 @@ class ClientController:
                 sender=self.username,
                 payload={"username": self.username}
             )
-            await self.network.send(join_msg.to_json()) 
+            await self.network.send(join_msg) 
         else:
             self.root.after(0, lambda: messagebox.showerror("Errore", "Impossibile connettersi al Server"))
 
@@ -81,7 +81,7 @@ class ClientController:
             )
             
             asyncio.run_coroutine_threadsafe(
-                self.network.send(chat_msg.to_json()),
+                self.network.send(chat_msg),
                 self.loop
             )
             self.gui.append_log(f"TU: {msg_text}")

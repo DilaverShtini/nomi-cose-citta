@@ -1,7 +1,7 @@
 import asyncio
 
 from src.common.constants import DEFAULT_SERVER_HOST, DEFAULT_SERVER_PORT
-from src.common import Message
+from src.common.message import Message
 from src.server.client_handler import ClientHandler
 
 class GameServer:
@@ -70,10 +70,11 @@ class GameServer:
             msg: a Message to broadcast
             exclude: ClientHandler instance to exclude from broadcast
         """
+        msg_bytes = msg.to_bytes()
         tasks = []
         for client in self.clients:
             if client != exclude:
-                tasks.append(asyncio.create_task(client.send(msg)))
+                tasks.append(asyncio.create_task(client.send(msg_bytes)))
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
 

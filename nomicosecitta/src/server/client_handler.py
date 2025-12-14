@@ -40,8 +40,8 @@ class ClientHandler:
                 try: 
                     data = await self.reader.read(BUFFER_SIZE)
                     if not data:
+                        print(f"[DEBUG] {self.addr} Connessione chiusa dal client (0 bytes)")
                         break
-
                     msg_obj = Message.from_bytes(data)
                     if msg_obj.type == MessageType.CMD_JOIN:
                         await self._handle_join(msg_obj.payload)
@@ -72,12 +72,18 @@ class ClientHandler:
             payload={"players": active_users}
         )
 
-        await self.server.broadcast(update_msg.to_bytes())
+        await self.server.broadcast(update_msg)
 
-    async def send(self, data):
+    async def send(self, data: bytes):
         if self.running:
-            self.writer.write(data)
-            await self.writer.drain()
+            try:
+                if not data.endswith(b'\n'):
+                    data = data + b'\n'
+
+                self.writer.write(data)
+                await self.writer.drain()
+            except Exception as e:
+                print(f"[ERROR] Errore invio a {self.addr}: {e}")
 
     async def close_connection(self):
         """

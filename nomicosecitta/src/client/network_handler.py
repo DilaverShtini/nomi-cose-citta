@@ -1,7 +1,7 @@
 import asyncio
 
 from src.common.constants import BUFFER_SIZE, ENCODING, DEFAULT_SERVER_HOST, DEFAULT_SERVER_PORT
-from src.common import Message
+from src.common.message import Message
 
 class NetworkHandler:
     """
