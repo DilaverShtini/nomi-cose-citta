@@ -3,8 +3,7 @@ import sys
 import os
 
 from src.common.constants import BUFFER_SIZE, ENCODING
-
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../'))
+from src.common.message import Message, MessageType
 
 class ClientHandler:
     """
@@ -43,36 +42,42 @@ class ClientHandler:
                     if not data:
                         break
 
-                    msg = data.decode(ENCODING)
-                    print(f"[{self.addr}] Received: {msg}")
+                    msg_obj = Message.from_bytes(data)
+                    if msg_obj.type == MessageType.CMD_JOIN:
+                        await self._handle_join(msg_obj.payload)
 
-                    # At the moment echo, in the future JSON commands will be parsed here
-                    await self.send(f"Server Echo: {msg}")
-
-                except ConnectionResetError:
-                    print(f"[ERROR] Connection reset by {self.addr}")
-                    break
-                except Exception as e:
-                    print(f"[ERROR] Error handling {self.addr}: {e}")
-                    break
+                except ValueError as e:
+                    print(f"[ERROR] Messaggio invalido da {self.addr}: {e}")
+        except Exception as e:
+            print(f"[ERROR] Handler {self.addr}: {e}")
         finally:
             await self.close_connection()
 
-    async def send(self, msg): 
-        """
-        Sends a string to the client (encoded in bytes).
-        
-        Args:
-            msg: String message to send
-        """
+    async def _handle_join(self, payload):
+        username = payload.get("username", "").strip()
 
-        if not self.running:
+        if not username or self.server.is_username_taken(username):
+            err_msg = Message(MessageType.ERROR, "SERVER", {"error": "Nome non valido o in uso"})
+            await self.send(err_msg.to_bytes())
             return
-        try:
-            self.writer.write(msg.encode(ENCODING))
+
+        self.username = username
+        print(f"[JOIN] {self.addr} -> {username}")
+
+        active_users = list(self.server.get_active_usernames())
+
+        update_msg = Message(
+            type=MessageType.EVT_LOBBY_UPDATE,
+            sender="SERVER",
+            payload={"players": active_users}
+        )
+
+        await self.server.broadcast(update_msg.to_bytes())
+
+    async def send(self, data):
+        if self.running:
+            self.writer.write(data)
             await self.writer.drain()
-        except Exception as e:
-            print(f"[ERROR] Sending to {self.addr}: {e}")
 
     async def close_connection(self):
         """
@@ -83,10 +88,10 @@ class ClientHandler:
             return
         
         self.running = False
+        self.server.remove_client(self)
         try:
             self.writer.close()
             await self.writer.wait_closed()
         except:
             pass
         print(f"[DISCONNECTED] {self.addr} disconnected.")
-        self.server.remove_client(self)
