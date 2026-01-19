@@ -314,11 +314,6 @@ class ClientGUI:
                 messagebox.showwarning("Selection Required", 
                                       "You must select at least one extra category.")
                 return
-            
-            if len(selected_extra) < num_extra:
-                messagebox.showwarning("Insufficient Categories", 
-                                      f"You have selected {len(selected_extra)} categories but at least {num_extra} are required.")
-                return
 
         game_config = {
             "mode": mode,
