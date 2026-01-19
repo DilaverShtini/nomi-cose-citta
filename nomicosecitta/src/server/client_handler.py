@@ -94,10 +94,21 @@ class ClientHandler:
             return
         
         self.running = False
+        had_username = self.username is not None
         self.server.remove_client(self)
+
         try:
             self.writer.close()
             await self.writer.wait_closed()
         except:
             pass
         print(f"[DISCONNECTED] {self.addr} disconnected.")
+
+        if had_username:
+            active_users = list(self.server.get_active_usernames())
+            update_msg = Message(
+                type=MessageType.EVT_LOBBY_UPDATE,
+                sender="SERVER",
+                payload={"players": active_users}
+            )
+            await self.server.broadcast(update_msg)
