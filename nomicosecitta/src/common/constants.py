@@ -8,3 +8,7 @@ ENCODING = 'utf-8'
 import os
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SHARED_DATA_PATH = os.path.join(BASE_DIR, "shared_data")
+
+DEFAULT_CATEGORIES = ["Nomi", "Cose", "Città"]
+MAX_EXTRA_CATEGORIES = 5
+ROUND_DURATION_SECONDS = 60
