@@ -11,7 +11,7 @@ root_dir = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
 sys.path.append(root_dir)
 
 from src.client.network_handler import NetworkHandler
-from src.client.gui import ClientGUI
+from nomicosecitta.src.client.gui.client_gui import ClientGUI
 from src.common.constants import DEFAULT_SERVER_PORT
 
 class ClientController:
