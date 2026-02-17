@@ -1,17 +1,18 @@
 import sys
 import os
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+root_dir = os.path.dirname(os.path.dirname(current_dir))
+sys.path.append(root_dir)
+
 import asyncio
 import threading
 import tkinter as tk
 from tkinter import messagebox
 from src.common.message import Message, MessageType
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
-root_dir = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
-sys.path.append(root_dir)
-
 from src.client.network_handler import NetworkHandler
-from nomicosecitta.src.client.gui.gui_manager import ClientGUI
+from src.client.gui import GUIManager
 from src.common.constants import DEFAULT_SERVER_PORT
 
 class ClientController:
@@ -21,7 +22,9 @@ class ClientController:
         self.username = ""
 
         self.root = tk.Tk()
-        self.gui = ClientGUI(self.root, self.connect_to_server, self.send_message)
+        self.gui = GUIManager(self.root)
+        self.gui.on_connect = self.connect_to_server
+        self.gui.on_send_message = self.send_message
 
         self.network_thread = threading.Thread(target=self._start_async_loop, daemon=True)
         self.network_thread.start()
