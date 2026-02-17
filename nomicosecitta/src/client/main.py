@@ -26,6 +26,8 @@ class ClientController:
         self.gui.on_connect = self.connect_to_server
         self.gui.on_send_message = self.send_message
 
+        self.gui.on_start_game = self.request_game_start
+
         self.network_thread = threading.Thread(target=self._start_async_loop, daemon=True)
         self.network_thread.start()
 
@@ -54,6 +56,22 @@ class ClientController:
         else:
             self.root.after(0, lambda: messagebox.showerror("Errore", "Impossibile connettersi al Server"))
 
+    def request_game_start(self, settings):
+        print(f"[CONTROLLER] Richiesta avvio gioco: {settings}")
+        
+        if self.network and self.network.is_connected():
+            msg = Message(
+                type=MessageType.CMD_START_GAME,
+                sender=self.username,
+                payload=settings
+            )
+            asyncio.run_coroutine_threadsafe(
+                self.network.send(msg),
+                self.loop
+            )
+        else:
+            print("[ERROR] Non connesso, impossibile avviare.")
+
     def handle_incoming_message(self, msg_obj):        
         if msg_obj.type == MessageType.EVT_LOBBY_UPDATE:
             self.root.after(0, self.gui.show_lobby) 
@@ -64,6 +82,27 @@ class ClientController:
             self.root.after(0, lambda: self.gui.set_admin(is_admin))
             self.root.after(0, lambda: self.gui.update_player_list(players, admin_username=admin))
             self.root.after(0, lambda: self.gui.update_player_list(players))
+
+        elif msg_obj.type == MessageType.EVT_GAME_START:
+            self.root.after(0, self.gui.show_game)
+            
+            letter = msg_obj.payload.get("letter", "?")
+            categories = msg_obj.payload.get("categories", [])
+            
+            self.root.after(0, lambda: self.gui.update_game_letter(letter))
+            self.root.after(0, lambda: self.gui.update_categories(categories))
+            self.root.after(0, lambda: self.gui.set_inputs_enabled(True))
+
+        elif msg_obj.type == MessageType.EVT_TIMER_UPDATE:
+            seconds_left = int(msg_obj.payload.get("time", 0))
+            self.root.after(0, lambda: self.gui.update_timer(seconds_left))
+
+        elif msg_obj.type == MessageType.EVT_ROUND_END:
+            reason = msg_obj.payload.get("reason", "")
+            self.root.after(0, lambda: messagebox.showinfo("Round Ended", f"Tempo scaduto! ({reason})"))
+
+            self.root.after(0, lambda: self.gui.set_inputs_enabled(False))
+            #TODO invio risultati
 
         elif msg_obj.type == MessageType.ERROR:
             err = msg_obj.payload.get("error", "Errore generico")
