@@ -3,6 +3,7 @@ import asyncio
 from src.common.constants import DEFAULT_SERVER_HOST, DEFAULT_SERVER_PORT
 from src.common.message import Message
 from src.server.client_handler import ClientHandler
+from src.server.game_engine import GameEngine
 
 class GameServer:
     """
@@ -18,6 +19,7 @@ class GameServer:
         self.clients = []
         self.running = False
         self.admin_username = None
+        self.engine = GameEngine(self)
 
     async def start(self):
         """ 

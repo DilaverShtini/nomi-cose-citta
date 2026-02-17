@@ -45,7 +45,8 @@ class ClientHandler:
                     msg_obj = Message.from_bytes(data)
                     if msg_obj.type == MessageType.CMD_JOIN:
                         await self._handle_join(msg_obj.payload)
-
+                    elif msg_obj.type == MessageType.CMD_START_GAME:
+                        await self._handle_start_game(msg_obj.payload)
                 except ValueError as e:
                     print(f"[ERROR] Messaggio invalido da {self.addr}: {e}")
         except Exception as e:
@@ -74,6 +75,17 @@ class ClientHandler:
             }
         )
         await self.server.broadcast(update_msg)
+
+    async def _handle_start_game(self, settings):
+        if not self.username:
+            return
+
+        print(f"[START GAME] Request from {self.username} with settings: {settings}")
+        success, info = await self.server.engine.start_game(self.username, settings)
+        
+        if not success:
+            err_msg = Message(MessageType.ERROR, "SERVER", {"error": info})
+            await self.send(err_msg.to_bytes())
 
     async def send(self, data: bytes):
         if self.running:

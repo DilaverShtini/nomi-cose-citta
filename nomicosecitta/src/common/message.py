@@ -2,17 +2,20 @@ import json
 import time
 from enum import StrEnum, auto
 from dataclasses import dataclass, field, asdict
-from typing import Any, Optional
+from typing import Any
+from enum import StrEnum, auto
 
 class MessageType(StrEnum):
     # client -> server
     CMD_JOIN = auto()
+    CMD_START_GAME = auto()
     CMD_SUBMIT= auto()
 
     # server -> client
     EVT_LOBBY_UPDATE = auto()
     EVT_TIMER_UPDATE = auto()
     EVT_PEER_MAP = auto()
+    EVT_GAME_START = auto()
     EVT_ROUND_START = auto()
     EVT_VOTING_START = auto()
     EVT_ROUND_END = auto()
@@ -22,6 +25,16 @@ class MessageType(StrEnum):
     # client <-> client
     P2P_CHAT = auto()
     P2P_VOTE = auto()
+
+class GameState(StrEnum):
+    """
+    Represents the status of the game.
+    """
+    LOBBY = auto()
+    PLAYING = auto()
+    VOTING = auto()
+    SCORING = auto()
+    ENDED = auto()
 
 @dataclass
 class Message:
