@@ -1,83 +1,51 @@
 """
-Reusable timer display widget.
-Used in Game and Voting screens.
+Timer display widget.
 """
 import tkinter as tk
+from src.client.gui import theme
 
 
 class TimerDisplay:
-    """
-    Displays a countdown timer with color-coded urgency.
-    """
-
-    def __init__(self, parent: tk.Widget, bg_color: str = "#2196F3"):
-        """
-        Initialize the timer display.
-        
-        Args:
-            parent: Parent widget.
-            bg_color: Background color for the timer frame.
-        """
-        self.frame = tk.Frame(parent, bg=bg_color)
+    def __init__(self, parent: tk.Widget, bg_color: str = None):
+        self._bg = bg_color or theme.BG_SURFACE
+        self.frame = tk.Frame(parent, bg=self._bg)
         self._time_var = tk.StringVar(value="--:--")
-        self._bg_color = bg_color
-        
         self._setup_ui()
 
     def _setup_ui(self):
-        """Setup the timer UI."""
-        tk.Label(
-            self.frame,
-            text="TIME:",
-            font=("Arial", 12),
-            bg=self._bg_color,
-            fg="white"
-        ).pack(side="left", padx=(0, 10))
+        tk.Label(self.frame, text="Time remaining",
+                 font=(theme.HAND_FONT, 8),
+                 bg=self._bg, fg=theme.INK_LIGHT).pack(anchor="e")
 
         self._timer_label = tk.Label(
             self.frame,
             textvariable=self._time_var,
-            font=("Arial", 28, "bold"),
-            bg=self._bg_color,
-            fg="yellow"
+            font=theme.FONT_TIMER,
+            bg=self._bg,
+            fg=theme.BLUE_INK,
         )
-        self._timer_label.pack(side="left")
+        self._timer_label.pack()
 
     def update(self, seconds_remaining: int):
-        """
-        Update the timer display.
-        
-        Args:
-            seconds_remaining: Number of seconds remaining.
-        """
         if seconds_remaining < 0:
             seconds_remaining = 0
-
-        minutes = seconds_remaining // 60
-        seconds = seconds_remaining % 60
-        self._time_var.set(f"{minutes:02d}:{seconds:02d}")
+        m, s = divmod(seconds_remaining, 60)
+        self._time_var.set(f"{m:02d}:{s:02d}")
 
         if seconds_remaining <= 10:
-            self._timer_label.configure(fg="red")
+            self._timer_label.configure(fg=theme.RED_INK)
         elif seconds_remaining <= 30:
-            self._timer_label.configure(fg="orange")
+            self._timer_label.configure(fg=theme.ORANGE_INK)
         else:
-            self._timer_label.configure(fg="yellow")
+            self._timer_label.configure(fg=theme.BLUE_INK)
 
     def reset(self):
-        """Reset timer to initial state."""
         self._time_var.set("--:--")
-        self._timer_label.configure(fg="yellow")
+        self._timer_label.configure(fg=theme.BLUE_INK)
 
     def set_expired(self):
-        """Set timer to expired state (00:00 in red)."""
         self._time_var.set("00:00")
-        self._timer_label.configure(fg="red")
+        self._timer_label.configure(fg=theme.RED_INK)
 
-    def pack(self, **kwargs):
-        """Pack the timer frame."""
-        self.frame.pack(**kwargs)
-
-    def grid(self, **kwargs):
-        """Grid the timer frame."""
-        self.frame.grid(**kwargs)
+    def pack(self, **kw): self.frame.pack(**kw)
+    def grid(self, **kw): self.frame.grid(**kw)
