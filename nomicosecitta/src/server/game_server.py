@@ -15,8 +15,9 @@ class GameServer:
         self.host = host
         self.port = port
         self.server = None
-        self.clients = [] # list of ClientHandler
+        self.clients = []
         self.running = False
+        self.admin_username = None
 
     async def start(self):
         """ 
@@ -77,6 +78,15 @@ class GameServer:
                 tasks.append(asyncio.create_task(client.send(msg_bytes)))
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
+
+    def get_admin(self):
+        """Returns the current admin username."""
+        return self.admin_username
+
+    def set_admin(self, username):
+        """Set admin only if no admin exists yet."""
+        if self.admin_username is None:
+            self.admin_username = username
 
     def get_client_by_username(self, username):
         """

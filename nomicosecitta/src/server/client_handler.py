@@ -62,16 +62,17 @@ class ClientHandler:
             return
 
         self.username = username
+        self.server.set_admin(username)
         print(f"[JOIN] {self.addr} -> {username}")
-
-        active_users = list(self.server.get_active_usernames())
 
         update_msg = Message(
             type=MessageType.EVT_LOBBY_UPDATE,
             sender="SERVER",
-            payload={"players": active_users}
+            payload={
+                "players": list(self.server.get_active_usernames()),
+                "admin": self.server.get_admin()
+            }
         )
-
         await self.server.broadcast(update_msg)
 
     async def send(self, data: bytes):
