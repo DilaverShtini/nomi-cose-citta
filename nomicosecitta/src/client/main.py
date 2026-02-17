@@ -59,6 +59,10 @@ class ClientController:
             self.root.after(0, self.gui.show_lobby) 
 
             players = msg_obj.payload.get("players", [])
+            admin = msg_obj.payload.get("admin")
+            is_admin = (admin == self.username)
+            self.root.after(0, lambda: self.gui.set_admin(is_admin))
+            self.root.after(0, lambda: self.gui.update_player_list(players, admin_username=admin))
             self.root.after(0, lambda: self.gui.update_player_list(players))
 
         elif msg_obj.type == MessageType.ERROR:
