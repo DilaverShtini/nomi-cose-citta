@@ -29,7 +29,7 @@ class GameEngine:
         if self.server.get_active_count() < 1:
             return False, "Not enough players"
 
-        self.state = GameState.PLAYING
+        self.state = GameState.WAITING_INPUT
 
         self.current_letter = random.choice(string.ascii_uppercase)
         while self.current_letter in self.old_letters:
@@ -69,7 +69,7 @@ class GameEngine:
         remaining = self.round_time
 
         try:
-            while remaining > 0 and self.state == GameState.PLAYING:
+            while remaining > 0 and self.state == GameState.WAITING_INPUT:
                 timer_msg = Message(
                     type=MessageType.EVT_TIMER_UPDATE,
                     sender="SERVER",
