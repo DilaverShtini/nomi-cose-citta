@@ -81,7 +81,7 @@ class ClientHandler:
             return
 
         print(f"[START GAME] Request from {self.username} with settings: {settings}")
-        success, info = await self.server.engine.start_game(self.username, settings)
+        success, info = await self.server.session.start_game(self.username, settings)
         
         if not success:
             err_msg = Message(MessageType.ERROR, "SERVER", {"error": info})

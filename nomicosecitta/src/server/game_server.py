@@ -3,7 +3,7 @@ import asyncio
 from src.common.constants import DEFAULT_SERVER_HOST, DEFAULT_SERVER_PORT
 from src.common.message import Message
 from src.server.client_handler import ClientHandler
-from src.server.game_engine import GameEngine
+from src.server.game_session import GameSession
 
 class GameServer:
     """
@@ -19,7 +19,7 @@ class GameServer:
         self.clients = []
         self.running = False
         self.admin_username = None
-        self.engine = GameEngine(self)
+        self.session = GameSession(self)
 
     async def start(self):
         """ 
@@ -43,7 +43,7 @@ class GameServer:
     async def _handle_connection(self, reader, writer):
         """
         Called for each new client connection.
-        
+
         Args:
             reader: AsyncIO StreamReader
             writer: AsyncIO StreamWriter
@@ -57,7 +57,7 @@ class GameServer:
     def remove_client(self, handler):
         """ 
         Remove a client from the active list.
-        
+
         Args:
             handler: ClientHandler instance to remove
         """
@@ -68,7 +68,7 @@ class GameServer:
     async def broadcast(self, msg: Message, exclude = None):
         """
         Send a message to all connected clients.
-        
+
         Args:
             msg: a Message to broadcast
             exclude: ClientHandler instance to exclude from broadcast
@@ -93,7 +93,7 @@ class GameServer:
     def get_client_by_username(self, username):
         """
         Find a client by username.
-        
+
         Args:
             username: Username string to search for
         Returns:
@@ -103,30 +103,30 @@ class GameServer:
             if client.username == username:
                 return client
         return None
-    
+
     def get_active_count(self):
         """
         Returns the number of active connected clients.
         """
         return len(self.clients)
-        
+
     def get_active_usernames(self):
         """
         Returns set of currently connected usernames.
         """
         return {client.username for client in self.clients if client.username}
-        
+
     def is_username_taken(self, username):
         """
         Check is a username is already in use.
-        
+
         Args:
             username: Username string to check
         Returns:
             bool: True if taken, False otherwise
         """
         return username in self.get_active_usernames()
-    
+
     def get_peer_map(self):
         """
         Returns dict mapping username -> p2p_address.
