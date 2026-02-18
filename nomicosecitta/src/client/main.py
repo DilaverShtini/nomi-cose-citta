@@ -99,8 +99,8 @@ class ClientController:
 
         elif msg_obj.type == MessageType.EVT_ROUND_END:
             reason = msg_obj.payload.get("reason", "")
-            self.root.after(0, lambda: messagebox.showinfo("Round Ended", f"Tempo scaduto! ({reason})"))
-
+            new_status = "Time's up! Round ended. Voting phase starting..."
+            self.root.after(0, lambda: self.gui.update_game_status(new_status))
             self.root.after(0, lambda: self.gui.set_inputs_enabled(False))
             #TODO invio risultati
 
