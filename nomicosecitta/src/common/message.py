@@ -31,7 +31,7 @@ class GameState(StrEnum):
     Represents the status of the game.
     """
     LOBBY = auto()
-    PLAYING = auto()
+    WAITING_INPUT = auto()
     VOTING = auto()
     SCORING = auto()
     ENDED = auto()
