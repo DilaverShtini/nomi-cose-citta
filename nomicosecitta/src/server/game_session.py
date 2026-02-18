@@ -2,7 +2,7 @@ import asyncio
 from src.common.message import Message, MessageType, GameState
 from src.server.round_manager import RoundManager
 
-class GameEngine:
+class GameSession:
     """
     Handle game logic.
     """
