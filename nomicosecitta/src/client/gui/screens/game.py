@@ -97,7 +97,7 @@ class GameScreen(BaseScreen):
         bar.pack(fill="x", side="bottom")
 
         self._status_label = tk.Label(bar,
-                                      text="Waiting for the round to begin...",
+                                      text="Waiting end of round...",
                                       font=(theme.HAND_FONT, 10, "italic"),
                                       bg=theme.BG_SURFACE, fg=theme.INK_LIGHT)
         self._status_label.pack(side="left")
