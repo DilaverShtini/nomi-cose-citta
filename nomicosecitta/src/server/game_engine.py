@@ -1,8 +1,6 @@
 import asyncio
-import random
-import string
 from src.common.message import Message, MessageType, GameState
-from src.common.constants import DEFAULT_CATEGORIES, DEFAULT_ROUND_TIME
+from src.server.round_manager import RoundManager
 
 class GameEngine:
     """
@@ -11,11 +9,8 @@ class GameEngine:
     def __init__(self, server):
         self.server = server
         self.state = GameState.LOBBY
-        self.current_letter = None
         self.old_letters = set()
-        self.current_categories = []
-        self.round_time = DEFAULT_ROUND_TIME
-        self._timer_task = None
+        self.current_round = None
 
     async def start_game(self, request_username, settings):
         """Handle game start request from admin."""
@@ -31,62 +26,43 @@ class GameEngine:
 
         self.state = GameState.WAITING_INPUT
 
-        self.current_letter = random.choice(string.ascii_uppercase)
-        while self.current_letter in self.old_letters:
-            self.current_letter = random.choice(string.ascii_uppercase)
-        self.old_letters.add(self.current_letter)
+        self.current_round = RoundManager(settings, self.old_letters)
+        self.old_letters.add(self.current_round.letter)
 
         self.round_time = int(settings["round_time"])
-        
-        extra = settings.get("selected_categories", [])
-        mode = settings.get("mode", "classic")
-        
-        if mode == "classic":
-                self.current_categories = ["Name", "Things", "Cities"]
-        elif mode == "classic_plus":
-                self.current_categories = ["Name", "Things", "Cities"] + extra
-        elif mode == "free":
-                self.current_categories = extra 
 
-        print(f"[GAME] Inizio Round: Lettera {self.current_letter}, Categorie {self.current_categories}")
+        print(f"[GAME] Inizio Round: Lettera {self.current_round.letter}, Categorie {self.current_round.categories}")
 
         start_msg = Message(
             type=MessageType.EVT_GAME_START,
             sender="SERVER",
             payload={
-                "letter": self.current_letter,
-                "categories": self.current_categories,
+                "letter": self.current_round.letter,
+                "categories": self.current_round.categories,
                 "duration": self.round_time
             }
         )
         await self.server.broadcast(start_msg)
 
-        self._timer_task = asyncio.create_task(self._run_timer())
+        self._timer_task = asyncio.create_task(
+            self.current_round.start_timer(
+                callback_on_tick=self._broadcast_timer, 
+                callback_on_end=self._end_round
+            )
+        )
+
         return True, "Game started"
 
-    async def _run_timer(self):
-        """Handle round timer and end round when time is up."""
-        remaining = self.round_time
-
-        try:
-            while remaining > 0 and self.state == GameState.WAITING_INPUT:
-                timer_msg = Message(
-                    type=MessageType.EVT_TIMER_UPDATE,
-                    sender="SERVER",
-                    payload={"time": remaining}
-                )
-                await self.server.broadcast(timer_msg)
-
-                await asyncio.sleep(1)
-                remaining -= 1
-
-            await self._end_round()
-
-        except asyncio.CancelledError:
-            print("[GAME] Timer cancellato")
+    async def _broadcast_timer(self, seconds):
+        msg = Message(
+            type=MessageType.EVT_TIMER_UPDATE,
+            sender="SERVER",
+            payload={"time": seconds}
+        )
+        await self.server.broadcast(msg)
 
     async def _end_round(self):
-        """End time: change PLAYING -> VOTING/SCORING"""
+        """End time: change WAITING_INPUT -> VOTING/SCORING"""
         print("[GAME] Tempo scaduto!.")
         self.state = GameState.VOTING
 
