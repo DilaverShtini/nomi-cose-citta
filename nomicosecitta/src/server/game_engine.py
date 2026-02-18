@@ -12,6 +12,7 @@ class GameEngine:
         self.server = server
         self.state = GameState.LOBBY
         self.current_letter = None
+        self.old_letters = set()
         self.current_categories = []
         self.round_time = DEFAULT_ROUND_TIME
         self._timer_task = None
@@ -31,6 +32,10 @@ class GameEngine:
         self.state = GameState.PLAYING
 
         self.current_letter = random.choice(string.ascii_uppercase)
+        while self.current_letter in self.old_letters:
+            self.current_letter = random.choice(string.ascii_uppercase)
+        self.old_letters.add(self.current_letter)
+
         self.round_time = int(settings["round_time"])
         
         extra = settings.get("selected_categories", [])
