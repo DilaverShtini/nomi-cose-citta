@@ -102,7 +102,7 @@ class ClientController:
             new_status = "Time's up! Round ended. Voting phase starting..."
             self.root.after(0, lambda: self.gui.update_game_status(new_status))
             self.root.after(0, lambda: self.gui.set_inputs_enabled(False))
-            #TODO invio risultati
+            self.submit_answers()
 
         elif msg_obj.type == MessageType.ERROR:
             err = msg_obj.payload.get("error", "Errore generico")
@@ -117,6 +117,23 @@ class ClientController:
         else:
             text = f"[{msg_obj.sender}] {msg_obj.type}"
             self.root.after(0, lambda: self.gui.append_log(text))
+
+    def submit_answers(self):
+        print("[CONTROLLER] Invio risposte al server...")
+        answers = self.gui.get_answers() 
+        
+        if self.network and self.network.is_connected():
+            submit_msg = Message(
+                type=MessageType.CMD_SUBMIT,
+                sender=self.username,
+                payload={"words": answers}
+            )
+            asyncio.run_coroutine_threadsafe(
+                self.network.send(submit_msg),
+                self.loop
+            )
+        else:
+            print("[ERROR] Disconnesso. Impossibile inviare le risposte.")
 
     def send_message(self, msg_text):
         if self.network and self.network.is_connected():
