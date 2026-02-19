@@ -12,6 +12,8 @@ class GameSession:
         self.old_letters = set()
         self.current_round = None
         self.received_answers = {}
+        self.round_data = {}
+        self.words_to_vote = {}
 
     async def start_game(self, request_username, settings):
         """Handle game start request from admin."""
@@ -69,17 +71,44 @@ class GameSession:
         
         if len(self.received_answers) >= total_players:
             print("[GAME] Tutti i giocatori hanno consegnato!")
+            self._process_initial_validation()
             await self._start_voting_phase()
+
+    def _process_initial_validation(self):
+        target_letter = self.current_round.letter.upper()
+
+        for category in self.current_round.categories:
+            self.round_data[category] = {}
+            self.words_to_vote[category] = {}
+            
+            for user, user_words in self.received_answers.items():
+                word = str(user_words.get(category, "")).strip().upper()
+                if not word or not word.startswith(target_letter):
+                    self.round_data[category][user] = {
+                        "word": word, 
+                        "status": "INVALID",
+                        "score": 0
+                    }
+                else:
+                    self.round_data[category][user] = {
+                        "word": word, 
+                        "status": "PENDING_VOTE",
+                        "score": 0
+                    }
+                    self.words_to_vote[category][user] = word
+        
+        print(f"[GAME] Validazione completata. dati: {self.round_data}")
 
     async def _start_voting_phase(self):
         self.state = GameState.VOTING
         vote_msg = Message(
             type=MessageType.EVT_VOTING_START,
             sender="SERVER",
-            payload={"all_answers": self.received_answers}
+            payload={"words_to_vote": self.words_to_vote}
         )
         await self.server.broadcast(vote_msg)
-        self.received_answers = {}
+        self.received_answers= {}
+        self.words_to_vote = {}
 
     async def _end_round(self):
         """End time: change WAITING_INPUT -> VOTING/SCORING"""
@@ -93,4 +122,3 @@ class GameSession:
         )
         await self.server.broadcast(end_msg)
 
-        #TODO logica di invio risultati e votazioni
