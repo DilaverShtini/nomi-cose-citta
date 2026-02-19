@@ -11,6 +11,7 @@ class GameSession:
         self.state = GameState.LOBBY
         self.old_letters = set()
         self.current_round = None
+        self.received_answers = {}
 
     async def start_game(self, request_username, settings):
         """Handle game start request from admin."""
@@ -60,6 +61,25 @@ class GameSession:
             payload={"time": seconds}
         )
         await self.server.broadcast(msg)
+
+    async def receive_answers(self, username, words):
+        self.received_answers[username] = words
+        print(f"[GAME] Ricevute risposte da {username}.")
+        total_players = self.server.get_active_count()
+        
+        if len(self.received_answers) >= total_players:
+            print("[GAME] Tutti i giocatori hanno consegnato!")
+            await self._start_voting_phase()
+
+    async def _start_voting_phase(self):
+        self.state = GameState.VOTING
+        vote_msg = Message(
+            type=MessageType.EVT_VOTING_START,
+            sender="SERVER",
+            payload={"all_answers": self.received_answers}
+        )
+        await self.server.broadcast(vote_msg)
+        self.received_answers = {}
 
     async def _end_round(self):
         """End time: change WAITING_INPUT -> VOTING/SCORING"""
