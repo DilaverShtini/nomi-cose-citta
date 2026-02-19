@@ -47,6 +47,9 @@ class ClientHandler:
                         await self._handle_join(msg_obj.payload)
                     elif msg_obj.type == MessageType.CMD_START_GAME:
                         await self._handle_start_game(msg_obj.payload)
+                    elif msg_obj.type == MessageType.CMD_SUBMIT:
+                        words = msg_obj.payload.get("words", {})
+                        await self.server.session.receive_answers(self.username, words)
                 except ValueError as e:
                     print(f"[ERROR] Messaggio invalido da {self.addr}: {e}")
         except Exception as e:
