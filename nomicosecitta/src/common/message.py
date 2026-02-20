@@ -3,7 +3,6 @@ import time
 from enum import StrEnum, auto
 from dataclasses import dataclass, field, asdict
 from typing import Any
-from enum import StrEnum, auto
 
 class MessageType(StrEnum):
     # client -> server
@@ -13,7 +12,6 @@ class MessageType(StrEnum):
 
     # server -> client
     EVT_LOBBY_UPDATE = auto()
-    EVT_TIMER_UPDATE = auto()
     EVT_PEER_MAP = auto()
     EVT_GAME_START = auto()
     EVT_ROUND_START = auto()

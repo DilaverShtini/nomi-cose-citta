@@ -28,19 +28,17 @@ class RoundManager:
         elif mode == "classic_plus": return ["Name", "Things", "Cities"] + extra
         return extra
 
-    async def start_timer(self, callback_on_tick, callback_on_end):
+    async def start_timer(self, callback_on_end):
         """
-        Start the round timer. Calls callback_on_tick every second with remaining time.
+        Wait for the round duration plus a grace period, then call the provided callback if still active.
         """
-        remaining = self.duration
+        grace_period = 2.0
         try:
-            while remaining > 0 and self.is_active:
-                await callback_on_tick(remaining)
-                await asyncio.sleep(1)
-                remaining -= 1
+            await asyncio.sleep(self.duration + grace_period)
             
-            self.is_active = False
-            await callback_on_end()
-            
+            if self.is_active:
+                self.is_active = False
+                await callback_on_end()
+                
         except asyncio.CancelledError:
             self.is_active = False
