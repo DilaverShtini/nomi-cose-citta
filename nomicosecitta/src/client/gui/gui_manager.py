@@ -45,7 +45,8 @@ class GUIManager:
         self.on_connect: Optional[Callable[[str, str], None]] = None
         self.on_send_message: Optional[Callable[[str], None]] = None
         self.on_start_game: Optional[Callable[[dict], None]] = None
-        
+        self.on_submit_answers: Optional[Callable[[dict], None]] = None
+
         self._screens: Dict[Screen, BaseScreen] = {}
         self._current_screen: Optional[Screen] = None
         
@@ -147,8 +148,8 @@ class GUIManager:
     def set_inputs_enabled(self, enabled: bool):
         self.game.set_inputs_enabled(enabled)
 
-    def start_round(self, letter: str, categories: list, round_number: int):
-        self.game.start_round(letter, categories, round_number)
+    def start_round(self, letter: str, categories: list, round_number: int, duration: int):
+        self.game.start_round(letter, categories, round_number, duration)
 
     def end_round(self):
         self.game.end_round()

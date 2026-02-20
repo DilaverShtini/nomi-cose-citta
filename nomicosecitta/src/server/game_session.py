@@ -49,28 +49,26 @@ class GameSession:
 
         self._timer_task = asyncio.create_task(
             self.current_round.start_timer(
-                callback_on_tick=self._broadcast_timer, 
                 callback_on_end=self._end_round
             )
         )
 
         return True, "Game started"
 
-    async def _broadcast_timer(self, seconds):
-        msg = Message(
-            type=MessageType.EVT_TIMER_UPDATE,
-            sender="SERVER",
-            payload={"time": seconds}
-        )
-        await self.server.broadcast(msg)
-
     async def receive_answers(self, username, words):
+        if self.state != GameState.WAITING_INPUT:
+            print(f"[WARN] Submit di {username} rifiutato: fuori tempo massimo.")
+            return
+
         self.received_answers[username] = words
         print(f"[GAME] Ricevute risposte da {username}.")
         total_players = self.server.get_active_count()
         
         if len(self.received_answers) >= total_players:
-            print("[GAME] Tutti i giocatori hanno consegnato!")
+            print("[GAME] Tutti i giocatori hanno consegnato in anticipo!")
+            if self._timer_task and not self._timer_task.done():
+                self._timer_task.cancel()
+            
             self._process_initial_validation()
             await self._start_voting_phase()
 
@@ -122,3 +120,5 @@ class GameSession:
         )
         await self.server.broadcast(end_msg)
 
+        self._process_initial_validation()
+        await self._start_voting_phase()

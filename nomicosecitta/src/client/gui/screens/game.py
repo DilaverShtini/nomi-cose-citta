@@ -194,7 +194,7 @@ class GameScreen(BaseScreen):
                         if isinstance(c, tk.Entry):
                             c.configure(state=state)
 
-    def start_round(self, letter: str, categories: list, round_number: int):
+    def start_round(self, letter: str, categories: list, round_number: int, duration: int):
         self.update_letter(letter)
         self.update_categories(categories)
         self.update_round_info(round_number)
@@ -203,8 +203,27 @@ class GameScreen(BaseScreen):
         self.update_status("Write your answers!")
         self._timer.reset()
         self._focus_first_entry()
+        self._timer.reset()
+        self._local_duration = duration
+        self._run_local_timer()
+
+    def _run_local_timer(self):
+        """Handle local countdown independent from server updates."""
+        if hasattr(self, '_local_duration') and self._local_duration >= 0 and self.is_active:
+            self.update_timer(self._local_duration)
+
+            if self._local_duration > 0:
+                self._local_duration -= 1
+                self._timer_job = self.frame.after(1000, self._run_local_timer)
+            else:
+                self.end_round()
+                if hasattr(self.manager, 'on_submit_answers') and self.manager.on_submit_answers:
+                    self.manager.on_submit_answers(self.get_answers())
 
     def end_round(self):
+        if hasattr(self, '_timer_job'):
+            self.frame.after_cancel(self._timer_job)
+            
         self.set_inputs_enabled(False)
         self.update_status("Time's up! Waiting for the results...")
         self._timer.set_expired()

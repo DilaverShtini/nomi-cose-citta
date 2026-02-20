@@ -27,6 +27,7 @@ class ClientController:
         self.gui.on_send_message = self.send_message
 
         self.gui.on_start_game = self.request_game_start
+        self.gui.on_submit_answers = self.submit_answers
 
         self.network_thread = threading.Thread(target=self._start_async_loop, daemon=True)
         self.network_thread.start()
@@ -88,14 +89,13 @@ class ClientController:
             
             letter = msg_obj.payload.get("letter", "?")
             categories = msg_obj.payload.get("categories", [])
+            duration = msg_obj.payload.get("duration", 60)
+            round_number = msg_obj.payload.get("round_number", 1)
             
             self.root.after(0, lambda: self.gui.update_game_letter(letter))
-            self.root.after(0, lambda: self.gui.update_categories(categories))
-            self.root.after(0, lambda: self.gui.set_inputs_enabled(True))
-
-        elif msg_obj.type == MessageType.EVT_TIMER_UPDATE:
-            seconds_left = int(msg_obj.payload.get("time", 0))
-            self.root.after(0, lambda: self.gui.update_timer(seconds_left))
+            #self.root.after(0, lambda: self.gui.update_categories(categories))
+            #self.root.after(0, lambda: self.gui.set_inputs_enabled(True))
+            self.root.after(0, lambda: self.gui.start_round(letter, categories, round_number, duration))
 
         elif msg_obj.type == MessageType.EVT_ROUND_END:
             reason = msg_obj.payload.get("reason", "")
@@ -118,9 +118,10 @@ class ClientController:
             text = f"[{msg_obj.sender}] {msg_obj.type}"
             self.root.after(0, lambda: self.gui.append_log(text))
 
-    def submit_answers(self):
+    def submit_answers(self, answers=None):
         print("[CONTROLLER] Invio risposte al server...")
-        answers = self.gui.get_answers() 
+        if answers is None:
+            answers = self.gui.get_answers() 
         
         if self.network and self.network.is_connected():
             submit_msg = Message(
