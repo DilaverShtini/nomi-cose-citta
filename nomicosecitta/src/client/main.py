@@ -90,11 +90,9 @@ class ClientController:
             letter = msg_obj.payload.get("letter", "?")
             categories = msg_obj.payload.get("categories", [])
             duration = msg_obj.payload.get("duration", 60)
-            round_number = msg_obj.payload.get("round_number", 1)
+            round_number = msg_obj.payload.get("round_number", 22)
             
             self.root.after(0, lambda: self.gui.update_game_letter(letter))
-            #self.root.after(0, lambda: self.gui.update_categories(categories))
-            #self.root.after(0, lambda: self.gui.set_inputs_enabled(True))
             self.root.after(0, lambda: self.gui.start_round(letter, categories, round_number, duration))
 
         elif msg_obj.type == MessageType.EVT_ROUND_END:
