@@ -109,7 +109,7 @@ class GUIManager:
         self.lobby.update_player_list(players, admin_username)
 
     def append_log(self, text: str):
-        self.lobby.append_log(text)
+        self.game.append_log(text)
 
     def get_selected_extra_categories(self) -> list:
         return self.lobby.get_selected_categories()

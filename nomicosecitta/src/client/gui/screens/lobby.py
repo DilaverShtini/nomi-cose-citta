@@ -5,7 +5,7 @@ Waiting room with player list, game settings, and chat.
 import tkinter as tk
 from tkinter import messagebox
 from src.client.gui.screens.base_screen import BaseScreen
-from src.client.gui.widgets import PlayerList, ChatPanel
+from src.client.gui.widgets import PlayerList
 from src.client.gui.utils import bind_mousewheel
 from src.client.gui import theme
 from src.common.constants import (
@@ -67,7 +67,6 @@ class LobbyScreen(BaseScreen):
         content.pack(fill="both", expand=True, padx=theme.PAD_MD, pady=theme.PAD_MD)
         self._setup_players_panel(content)
         self._setup_settings_panel(content)
-        self._setup_chat_panel(content)
 
     def _setup_players_panel(self, parent):
         left = tk.Frame(parent, bg=theme.BG_PAGE, width=150)
@@ -100,12 +99,6 @@ class LobbyScreen(BaseScreen):
         bind_mousewheel(canvas)
 
         self._build_settings_controls()
-
-    def _setup_chat_panel(self, parent):
-        right = tk.Frame(parent, bg=theme.BG_PAGE, width=230)
-        right.pack(side="right", fill="both", padx=(theme.PAD_SM, 0))
-        self._chat = ChatPanel(right, on_send=self._handle_send_chat)
-        self._chat.pack(fill="both", expand=True)
 
     # Settings
 
@@ -378,10 +371,6 @@ class LobbyScreen(BaseScreen):
         if self.manager.on_category_vote_changed:
             self.manager.on_category_vote_changed(self.get_selected_categories())
 
-    def _handle_send_chat(self, message: str):
-        if self.manager.on_send_message:
-            self.manager.on_send_message(message)
-
     def _handle_start_game(self):
         mode = self._game_mode_var.get()
         selected = self.get_selected_categories()
@@ -476,9 +465,6 @@ class LobbyScreen(BaseScreen):
 
     def update_player_list(self, players: list, admin_username: str = None):
         self._player_list.update(players, admin_username)
-
-    def append_log(self, text: str):
-        self._chat.append(text)
 
     def get_selected_categories(self) -> list:
         return [cat for cat, var in self._extra_category_vars.items() if var.get()]

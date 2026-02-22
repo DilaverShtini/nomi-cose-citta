@@ -8,7 +8,7 @@ from src.client.gui.widgets import TimerDisplay
 from src.client.gui.utils import bind_mousewheel
 from src.client.gui import theme
 from src.common.constants import DEFAULT_CATEGORIES
-
+from src.client.gui.widgets import ChatPanel
 
 class GameScreen(BaseScreen):
     """Game screen — stile quaderno scolastico."""
@@ -20,9 +20,14 @@ class GameScreen(BaseScreen):
         self._answer_vars = {}
 
         self._setup_top_bar()
-        self._setup_categories_area()
-        self._setup_status_bar()
 
+        self._middle_frame = tk.Frame(self.frame, bg=theme.BG_PAGE)
+        self._middle_frame.pack(fill="both", expand=True)
+
+        self._setup_categories_area(self._middle_frame)
+        self._setup_chat_panel(self._middle_frame)
+
+        self._setup_status_bar()
     # Top bar
 
     def _setup_top_bar(self):
@@ -67,9 +72,9 @@ class GameScreen(BaseScreen):
 
     # Categories area
 
-    def _setup_categories_area(self):
-        container = tk.Frame(self.frame, bg=theme.BG_PAGE)
-        container.pack(fill="both", expand=True)
+    def _setup_categories_area(self, parent):
+        container = tk.Frame(parent, bg=theme.BG_PAGE)
+        container.pack(side="left", fill="both", expand=True) 
 
         self._canvas = tk.Canvas(container, bg=theme.BG_PAGE, highlightthickness=0)
         scrollbar = tk.Scrollbar(container, orient="vertical", command=self._canvas.yview,
@@ -194,6 +199,24 @@ class GameScreen(BaseScreen):
                     for c in child.winfo_children():
                         if isinstance(c, tk.Entry):
                             c.configure(state=state)
+
+    # Chat panel
+
+    def _setup_chat_panel(self, parent):
+        right = tk.Frame(parent, bg=theme.BG_PAGE, width=250)
+        right.pack(side="right", fill="y", padx=(theme.PAD_SM, theme.PAD_MD), pady=(0, theme.PAD_SM))
+        right.pack_propagate(False)
+
+        self._chat = ChatPanel(right, on_send=self._handle_send_chat)
+        self._chat.pack(fill="both", expand=True)
+
+    def _handle_send_chat(self, message: str):
+        if hasattr(self.manager, 'on_send_message') and self.manager.on_send_message:
+            self.manager.on_send_message(message)
+
+    def append_log(self, text: str):
+        if hasattr(self, '_chat'):
+            self._chat.append(text)
 
     def start_round(self, letter: str, categories: list, round_number: int, duration: int):
         self.update_letter(letter)
