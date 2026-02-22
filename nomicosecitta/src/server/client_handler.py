@@ -42,7 +42,7 @@ class ClientHandler:
                 try: 
                     data = await self.reader.read(BUFFER_SIZE)
                     if not data:
-                        print(f"[DEBUG] {self.addr} connection closed (0 bytes)")
+                        print(f"[DEBUG] {self.addr} closed the connection.")
                         break
                     msg_obj = Message.from_bytes(data)
                     if msg_obj.type == MessageType.CMD_JOIN:
@@ -57,6 +57,7 @@ class ClientHandler:
 
                 except ValueError as e:
                     print(f"[ERROR] Invalid message from {self.addr}: {e}")
+                    print(f"[ERROR] Invalid message from {self.addr}: {e}")
         except Exception as e:
             print(f"[ERROR] Handler {self.addr}: {e}")
         finally:
@@ -66,10 +67,8 @@ class ClientHandler:
         username = payload.get("username", "").strip()
 
         if not username or self.server.is_username_taken(username):
-            await self.send(Message(
-                MessageType.EVT_ERROR, "SERVER",
-                {"error": "Nome non valido o in uso"}
-            ).to_bytes())
+            err_msg = Message(MessageType.EVT_ERROR, "SERVER", {"error": "Username already taken or invalid"})
+            await self.send(err_msg.to_bytes())
             return
         
         self.username = username
@@ -137,7 +136,7 @@ class ClientHandler:
                 self.writer.write(data)
                 await self.writer.drain()
             except Exception as e:
-                print(f"[ERROR] Errore invio a {self.addr}: {e}")
+                print(f"[ERROR] Error sending to {self.addr}: {e}")
 
     async def close_connection(self):
         if not self.running:

@@ -38,7 +38,7 @@ class GameSession:
             }
         )
         await self.server.broadcast(peermap_msg)
-        print(f"[GAME] Mappa peer inviata: {peermap_msg.payload['peermap']}")
+        print(f"[GAME] Peermap sent: {peermap_msg.payload['peermap']}")
 
         self.state = GameState.WAITING_INPUT
 
@@ -93,10 +93,11 @@ class GameSession:
 
     async def receive_answers(self, username, words):
         if self.state != GameState.WAITING_INPUT:
-            print(f"[WARN] Submit of {username} rejected: out of time.")
+            print(f"[WARN] Submit of {username} rejected: outside time limit.")
             return
 
         self.received_answers[username] = words
+        print(f"[GAME] Received answers from {username}.")
         print(f"[GAME] Received answers from {username}.")
         total_players = self.server.get_active_count()
         
@@ -131,7 +132,7 @@ class GameSession:
                     }
                     self.words_to_vote[category][user] = word
         
-        print(f"[GAME] Validation completed. Data: {self.round_data}")
+        print(f"[GAME] Initial validation completed. Data: {self.round_data}")
 
     async def _start_voting_phase(self):
         self.state = GameState.VOTING
