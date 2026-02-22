@@ -163,17 +163,58 @@ class NetworkHandler:
         )
         self.p2p_port = self.p2p_server.sockets[0].getsockname()[1]
         
-        print(f"[Network] Server P2P in ascolto sulla porta reale: {self.p2p_port}")
+        print(f"[Network] P2P server listening on port {self.p2p_port}")
         return self.p2p_port
 
     async def _handle_p2p_connection(self, reader, writer):
-        """Handle incoming P2P connections from other players for voting."""
+        """Handle incoming P2P connections from other players for voting.
+        Args:            
+            reader: AsyncIO StreamReader for the P2P connection.
+            writer: AsyncIO StreamWriter for the P2P connection.
+        """
         peer_addr = writer.get_extra_info('peername')
-        print(f"[P2P] Connessione in entrata da un altro giocatore: {peer_addr}")
+        try:
+            data = await reader.readline()
+            if data:
+                json_msg = data.decode(ENCODING).strip()
+                if json_msg:
+                    message = Message.from_json(json_msg)
+                    if self.on_message:
+                        self.on_message(message)
+                        
+        except ValueError as e:
+            print(f"[P2P] JSON error {peer_addr}: {e}")
+        except Exception as e:
+            print(f"[P2P] Error receiving from {peer_addr}: {e}")
+        finally:
+            writer.close()
+            await writer.wait_closed()
+
+    async def send_p2p(self, peer_address: str, message: Message):
+        """
+        Open a temporary connection to a peer and send a message.
         
-        # TODO: Logic to handle P2P communication for voting would go here.
-        writer.close()
-        await writer.wait_closed()
+        Args:
+            peer_address: Address of the peer in "ip:port" format.
+            message: Message to send.
+        Returns:        
+        bool: True if sent successfully, False otherwise.
+        """
+        try:
+            ip, port_str = peer_address.split(':')
+            port = int(port_str)
+            _, writer = await asyncio.open_connection(ip, port)
+            json_str = message.to_json()
+            data = (json_str + "\n").encode(ENCODING)
+            writer.write(data)
+            await writer.drain()
+            writer.close()
+            await writer.wait_closed()
+            return True
+            
+        except Exception as e:
+            print(f"[P2P] Error sending to {peer_address}: {e}")
+            return False
 
     async def _handle_disconnect(self, reason):
         """

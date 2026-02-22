@@ -24,6 +24,7 @@ class ClientController:
         self.loop = asyncio.new_event_loop()
         self.network = None
         self.username = ""
+        self.peer_map = {}
 
         self.root = tk.Tk()
         self.gui = GUIManager(self.root)
@@ -134,6 +135,10 @@ class ClientController:
                 num_extra = settings.get("num_extra_categories", 2)
                 self.root.after(
                     0, lambda m=mode, n=num_extra: self.gui.update_lobby_settings(m, n))
+        
+        elif msg_obj.type == MessageType.EVT_PEER_MAP:
+            self.peer_map = msg_obj.payload.get("peermap", {})
+            print(f"[CONTROLLER] Updated peer map: {self.peer_map}")
 
         elif t == MessageType.EVT_ROUND_START:
             self.root.after(0, self.gui.show_game)
@@ -159,12 +164,20 @@ class ClientController:
             chat_text = f"{msg_obj.sender}: {msg_obj.payload.get('text', '')}"
             self.root.after(0, lambda: self.gui.append_log(chat_text))
 
+        elif msg_obj.type == MessageType.MSG_VOTE:
+            target = msg_obj.payload["target"]
+            category = msg_obj.payload["category"]
+            is_valid = msg_obj.payload["valid"]
+            voter = msg_obj.sender
+            print(f"[P2P] Vote received from {voter}: {target} -> {category} is {is_valid}")
+            #TODO: Manage vote received.
+
         else:
             self.root.after(0, lambda: self.gui.append_log(
                 f"[{msg_obj.sender}] {msg_obj.type}"))
 
     def submit_answers(self, answers=None):
-        print("[CONTROLLER] Sending responses to the server...")
+        print("[CONTROLLER] Sending answers to server...")
         if answers is None:
             answers = self.gui.get_answers()
         if self.network and self.network.is_connected():
@@ -177,7 +190,7 @@ class ClientController:
                 self.loop,
             )
         else:
-            print("[ERROR] Disconnected. Unable to send replies.")
+            print("[ERROR] Disconnected. Impossible to submit answers.")
 
     def send_message(self, msg_text: str):
         if self.network and self.network.is_connected():
@@ -191,6 +204,23 @@ class ClientController:
             )
             self.gui.append_log(f"TU: {msg_text}")
 
+    async def broadcast_vote(self, target_user, category, is_valid):
+        """Send a vote to all peers via P2P."""
+        vote_msg = Message(
+            type=MessageType.MSG_VOTE,
+            sender=self.username,
+            payload={
+                "target": target_user,
+                "category": category,
+                "valid": is_valid
+            }
+        )
+        for peer_name, peer_address in self.peer_map.items():
+            if peer_name != self.username:
+                await self.network.send_p2p(peer_address, vote_msg)
+
+    def handle_disconnection(self, reason):
+        self.root.after(0, lambda: messagebox.showwarning("Disconnected", f"Lost connection: {reason}"))
     def handle_disconnection(self, reason: str):
         self.root.after(0, lambda: messagebox.showwarning(
             "Disconnected", f"Connection lost: {reason}"))
