@@ -30,6 +30,16 @@ class GameSession:
         if self.server.get_active_count() < 1:
             return False, "Not enough players"
 
+        peermap_msg = Message(
+            type=MessageType.EVT_PEER_MAP,
+            sender="SERVER",
+            payload={
+                "peermap": self.server.get_peer_map()
+            }
+        )
+        await self.server.broadcast(peermap_msg)
+        print(f"[GAME] Mappa peer inviata: {peermap_msg.payload['peermap']}")
+
         self.state = GameState.WAITING_INPUT
 
         mode = settings.get("mode", GAME_MODE_CLASSIC)

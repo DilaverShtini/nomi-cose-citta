@@ -28,6 +28,9 @@ class NetworkHandler:
         self.running = False
         self.receive_task = None
 
+        self.p2p_server = None
+        self.p2p_port = None
+
         # Callbacks
         self.on_message = None  # called when a message is received: on_message(data: str)
         self.on_disconnect = None  # called on disconnection: on_disconnect(reason: str)
@@ -148,6 +151,29 @@ class NetworkHandler:
                     print(f"[NetworkHandler] Receive error: {e}")
                     await self._handle_disconnect(str(e))
                 break
+
+    async def start_p2p_listener(self):
+        """
+            Start a P2P listener on a random available port and return the port number.
+        """
+        self.p2p_server = await asyncio.start_server(
+            self._handle_p2p_connection,
+            '0.0.0.0',
+            0
+        )
+        self.p2p_port = self.p2p_server.sockets[0].getsockname()[1]
+        
+        print(f"[Network] Server P2P in ascolto sulla porta reale: {self.p2p_port}")
+        return self.p2p_port
+
+    async def _handle_p2p_connection(self, reader, writer):
+        """Handle incoming P2P connections from other players for voting."""
+        peer_addr = writer.get_extra_info('peername')
+        print(f"[P2P] Connessione in entrata da un altro giocatore: {peer_addr}")
+        
+        # TODO: Logic to handle P2P communication for voting would go here.
+        writer.close()
+        await writer.wait_closed()
 
     async def _handle_disconnect(self, reason):
         """

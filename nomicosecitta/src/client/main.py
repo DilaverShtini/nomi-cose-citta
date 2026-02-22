@@ -51,13 +51,18 @@ class ClientController:
         asyncio.run_coroutine_threadsafe(self._async_connect(), self.loop)
 
     async def _async_connect(self):
+        p2p_port = await self.network.start_p2p_listener()
         success = await self.network.connect()
         if success:
-            await self.network.send(Message(
+            join_msg = Message(
                 type=MessageType.CMD_JOIN,
                 sender=self.username,
-                payload={"username": self.username},
-            ))
+                payload={
+                    "username": self.username,
+                    "p2p_port": p2p_port
+                }
+            )
+            await self.network.send(join_msg)
         else:
             self.root.after(0, lambda: messagebox.showerror(
                 "Error", "Unable to connect to the server"))
