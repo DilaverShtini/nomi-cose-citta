@@ -180,7 +180,7 @@ class ClientController:
             is_valid = msg_obj.payload["valid"]
             voter = msg_obj.sender
             print(f"[P2P] Vote received from {voter}: {target} -> {category} is {is_valid}")
-            #TODO: Update local GUI based on received votes 
+            #TODO: Manage vote received.
 
         else:
             self.root.after(0, lambda: self.gui.append_log(
@@ -238,6 +238,8 @@ class ClientController:
                 self.broadcast_vote(target_user, category, is_valid),
                 self.loop
             )
+        else:
+            print("[ERROR] Disconnected. Impossible to submit answers.")
 
     def submit_final_votes(self):
         """Called when the user confirms and locks in their final votes."""
@@ -252,8 +254,22 @@ class ClientController:
                 self.network.send(submit_votes_msg),
                 self.loop
             )
-        else:
-            print("[ERROR] Disconnected. Impossible to submit votes.")
+            self.gui.append_log(f"TU: {msg_text}")
+
+    async def broadcast_vote(self, target_user, category, is_valid):
+        """Send a vote to all peers via P2P."""
+        vote_msg = Message(
+            type=MessageType.MSG_VOTE,
+            sender=self.username,
+            payload={
+                "target": target_user,
+                "category": category,
+                "valid": is_valid
+            }
+        )
+        for peer_name, peer_address in self.peer_map.items():
+            if peer_name != self.username:
+                await self.network.send_p2p(peer_address, vote_msg)
 
     def handle_disconnection(self, reason):
         self.root.after(0, lambda: messagebox.showwarning("Disconnected", f"Lost connection: {reason}"))
