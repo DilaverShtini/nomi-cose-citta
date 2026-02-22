@@ -39,7 +39,7 @@ class GameSession:
         print(f"[GAME] Inizio Round: Lettera {self.current_round.letter}, Categorie {self.current_round.categories}")
 
         start_msg = Message(
-            type=MessageType.EVT_GAME_START,
+            type=MessageType.EVT_ROUND_START,
             sender="SERVER",
             payload={
                 "letter": self.current_round.letter,

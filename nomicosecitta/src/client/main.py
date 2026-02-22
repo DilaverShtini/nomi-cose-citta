@@ -84,7 +84,7 @@ class ClientController:
             self.root.after(0, lambda: self.gui.update_player_list(players, admin_username=admin))
             self.root.after(0, lambda: self.gui.update_player_list(players))
 
-        elif msg_obj.type == MessageType.EVT_GAME_START:
+        elif msg_obj.type == MessageType.EVT_ROUND_START:
             self.root.after(0, self.gui.show_game)
             
             letter = msg_obj.payload.get("letter", "?")
@@ -102,13 +102,13 @@ class ClientController:
             self.root.after(0, lambda: self.gui.set_inputs_enabled(False))
             self.submit_answers()
 
-        elif msg_obj.type == MessageType.ERROR:
+        elif msg_obj.type == MessageType.EVT_ERROR:
             err = msg_obj.payload.get("error", "Errore generico")
             self.root.after(0, lambda: messagebox.showerror("Errore di Login", err))
 
             asyncio.run_coroutine_threadsafe(self.network.disconnect(), self.loop)
 
-        elif msg_obj.type == MessageType.P2P_CHAT:
+        elif msg_obj.type == MessageType.MSG_CHAT:
              chat_text = f"{msg_obj.sender}: {msg_obj.payload.get('text', '')}"
              self.root.after(0, lambda: self.gui.append_log(chat_text))
 
@@ -137,7 +137,7 @@ class ClientController:
     def send_message(self, msg_text):
         if self.network and self.network.is_connected():
             chat_msg = Message(
-                type=MessageType.P2P_CHAT,
+                type=MessageType.MSG_CHAT,
                 sender=self.username,
                 payload={"text": msg_text}
             )
