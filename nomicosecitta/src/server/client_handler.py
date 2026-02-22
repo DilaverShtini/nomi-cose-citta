@@ -63,7 +63,6 @@ class ClientHandler:
                         await self._handle_lobby_action(msg_obj.payload)
                 except ValueError as e:
                     print(f"[ERROR] Invalid message from {self.addr}: {e}")
-                    print(f"[ERROR] Invalid message from {self.addr}: {e}")
         except Exception as e:
             print(f"[ERROR] Handler {self.addr}: {e}")
         finally:
