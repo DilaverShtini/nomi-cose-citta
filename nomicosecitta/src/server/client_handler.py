@@ -61,7 +61,7 @@ class ClientHandler:
         username = payload.get("username", "").strip()
 
         if not username or self.server.is_username_taken(username):
-            err_msg = Message(MessageType.ERROR, "SERVER", {"error": "Nome non valido o in uso"})
+            err_msg = Message(MessageType.EVT_ERROR, "SERVER", {"error": "Nome non valido o in uso"})
             await self.send(err_msg.to_bytes())
             return
 
@@ -87,7 +87,7 @@ class ClientHandler:
         success, info = await self.server.session.start_game(self.username, settings)
         
         if not success:
-            err_msg = Message(MessageType.ERROR, "SERVER", {"error": info})
+            err_msg = Message(MessageType.EVT_ERROR, "SERVER", {"error": info})
             await self.send(err_msg.to_bytes())
 
     async def send(self, data: bytes):

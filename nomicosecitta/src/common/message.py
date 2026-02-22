@@ -13,16 +13,15 @@ class MessageType(StrEnum):
     # server -> client
     EVT_LOBBY_UPDATE = auto()
     EVT_PEER_MAP = auto()
-    EVT_GAME_START = auto()
     EVT_ROUND_START = auto()
     EVT_VOTING_START = auto()
     EVT_ROUND_END = auto()
     EVT_GAME_OVER = auto()
-    ERROR = auto()
+    EVT_ERROR = auto()
 
     # client <-> client
-    P2P_CHAT = auto()
-    P2P_VOTE = auto()
+    MSG_CHAT = auto()
+    MSG_VOTE = auto()
 
 class GameState(StrEnum):
     """
