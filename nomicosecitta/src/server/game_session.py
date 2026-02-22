@@ -14,6 +14,7 @@ class GameSession:
         self.received_answers = {}
         self.round_data = {}
         self.words_to_vote = {}
+        self.current_round_number = 0
 
     async def start_game(self, request_username, settings):
         """Handle game start request from admin."""
@@ -33,6 +34,7 @@ class GameSession:
         self.old_letters.add(self.current_round.letter)
 
         self.round_time = int(settings["round_time"])
+        self.current_round_number += 1
 
         print(f"[GAME] Inizio Round: Lettera {self.current_round.letter}, Categorie {self.current_round.categories}")
 
@@ -42,7 +44,8 @@ class GameSession:
             payload={
                 "letter": self.current_round.letter,
                 "categories": self.current_round.categories,
-                "duration": self.round_time
+                "duration": self.round_time,
+                "round_number": self.current_round_number
             }
         )
         await self.server.broadcast(start_msg)
