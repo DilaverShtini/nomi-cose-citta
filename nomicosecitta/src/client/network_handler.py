@@ -31,6 +31,9 @@ class NetworkHandler:
         self.p2p_server = None
         self.p2p_port = None
 
+        self.p2p_server = None
+        self.p2p_port = None
+
         # Callbacks
         self.on_message = None  # called when a message is received: on_message(data: str)
         self.on_disconnect = None  # called on disconnection: on_disconnect(reason: str)

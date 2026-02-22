@@ -38,7 +38,7 @@ class GameSession:
             }
         )
         await self.server.broadcast(peermap_msg)
-        print(f"[GAME] Peermap sent: {peermap_msg.payload['peermap']}")
+        print(f"[GAME] Mappa peer inviata: {peermap_msg.payload['peermap']}")
 
         self.state = GameState.WAITING_INPUT
 
