@@ -35,6 +35,7 @@ class GUIManager:
         self.on_send_message: Optional[Callable[[str], None]] = None
         self.on_start_game: Optional[Callable[[dict], None]] = None
         self.on_submit_answers: Optional[Callable[[dict], None]] = None
+        self.on_vote_cast: Optional[Callable[[str, str, bool], None]] = None
 
         self.on_lobby_settings_changed: Optional[Callable[[dict], None]] = None
 
@@ -80,6 +81,10 @@ class GUIManager:
 
     def show_game(self):
         self.navigate_to(Screen.GAME)
+    
+    def show_voting_phase(self, words_to_vote: dict, my_username: str):
+        self.navigate_to(Screen.GAME)
+        self.game.build_voting_ui(words_to_vote, my_username)
 
     # Screen properties
 

@@ -227,3 +227,54 @@ class GameScreen(BaseScreen):
         self.set_inputs_enabled(False)
         self.update_status("Time's up! Waiting for the results...")
         self._timer.set_expired()
+
+    # All'interno della classe GameScreen:
+
+    def build_voting_ui(self, words_to_vote: dict, my_username: str):
+        """
+        Transform the categories area into a voting interface based on the words_to_vote structure.
+        """
+        for w in self._categories_frame.winfo_children():
+            w.destroy()
+
+        self.update_status("Voting phase: validate or invalidate the words submitted by other players.")
+        for category, users_words in words_to_vote.items():
+            cat_label = tk.Label(
+                self._categories_frame, 
+                text=f"{category.upper()}", 
+                font=theme.FONT_LABEL, 
+                bg=theme.BG_PAGE, 
+                fg=theme.INK
+            )
+            cat_label.pack(pady=(15, 5))
+            for target_user, word in users_words.items():
+                if target_user == my_username:
+                    continue 
+                row_frame = tk.Frame(self._categories_frame, bg=theme.BG_PAGE)
+                row_frame.pack(fill="x", padx=theme.PAD_LG, pady=2)
+                info_text = f"{target_user}:  {word}"
+                tk.Label(
+                    row_frame, text=info_text, font=theme.FONT_BODY,
+                    bg=theme.BG_PAGE, fg=theme.INK, width=30, anchor="w"
+                ).pack(side="left")
+                btn_yes = tk.Button(
+                    row_frame, text="Valida", bg="#d4edda", relief="flat", padx=10,
+                    command=lambda c=category, t=target_user, r=row_frame: self._cast_vote(t, c, True, r)
+                )
+                btn_yes.pack(side="left", padx=5)
+                btn_no = tk.Button(
+                    row_frame, text="Invalida", bg="#f8d7da", relief="flat", padx=10,
+                    command=lambda c=category, t=target_user, r=row_frame: self._cast_vote(t, c, False, r)
+                )
+                btn_no.pack(side="left", padx=5)
+        self.frame.update_idletasks()
+        self._canvas.configure(scrollregion=self._canvas.bbox("all"))
+
+
+    def _cast_vote(self, target_user: str, category: str, is_valid: bool, row_frame: tk.Frame):
+        """Manages the vote casting process for a specific user and category."""
+        for widget in row_frame.winfo_children():
+            if isinstance(widget, tk.Button):
+                widget.configure(state="disabled")
+        if hasattr(self.manager, 'on_vote_cast') and self.manager.on_vote_cast:
+            self.manager.on_vote_cast(target_user, category, is_valid)

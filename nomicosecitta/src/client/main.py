@@ -34,6 +34,8 @@ class ClientController:
         self.gui.on_start_game             = self.request_game_start
         self.gui.on_submit_answers         = self.submit_answers
         self.gui.on_lobby_settings_changed = self.send_lobby_settings
+        self.gui.on_vote_cast = self.handle_user_vote
+
         self.gui.on_category_vote_changed  = self.send_category_vote
 
         self.network_thread = threading.Thread(
@@ -155,6 +157,11 @@ class ClientController:
             self.root.after(0, lambda: self.gui.set_inputs_enabled(False))
             self.submit_answers()
 
+        elif msg_obj.type == MessageType.EVT_VOTING_START:
+            words_to_vote = msg_obj.payload.get("words_to_vote", {})
+            print(f"[CONTROLLER] Starting voting phase for: {words_to_vote}")
+            self.root.after(0, lambda: self.gui.show_voting_phase(words_to_vote, self.username))
+
         elif t == MessageType.EVT_ERROR:
             err = msg_obj.payload.get("error", "Generic error")
             self.root.after(0, lambda: messagebox.showerror("Login error", err))
@@ -218,6 +225,14 @@ class ClientController:
         for peer_name, peer_address in self.peer_map.items():
             if peer_name != self.username:
                 await self.network.send_p2p(peer_address, vote_msg)
+    
+    def handle_user_vote(self, target_user, category, is_valid):
+        """Called when the user casts a vote in the GUI. Broadcasts the vote to peers."""
+        if self.network and self.network.is_connected():
+            asyncio.run_coroutine_threadsafe(
+                self.broadcast_vote(target_user, category, is_valid),
+                self.loop
+            )
 
     def handle_disconnection(self, reason):
         self.root.after(0, lambda: messagebox.showwarning("Disconnected", f"Lost connection: {reason}"))
