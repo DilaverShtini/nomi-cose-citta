@@ -2,6 +2,7 @@
 Game screen for the Nomi Cose Città client.
 """
 import tkinter as tk
+from tkinter import messagebox
 from src.client.gui.screens.base_screen import BaseScreen
 from src.client.gui.widgets import TimerDisplay
 from src.client.gui.utils import bind_mousewheel
@@ -238,6 +239,7 @@ class GameScreen(BaseScreen):
 
         self.update_status("Voting phase: validate or invalidate the words submitted by other players.")
         self._vote_buttons = {}
+        self._voted_items = set()
 
         for category, users_words in words_to_vote.items():
             cat_label = tk.Label(
@@ -286,6 +288,7 @@ class GameScreen(BaseScreen):
     def _cast_vote(self, target_user: str, category: str, is_valid: bool, btn_yes: tk.Button, btn_no: tk.Button):
         """Handle the logic when a user clicks "Valid" or "Invalid" for a given word. 
         Updates button states and notifies the Controller."""
+        self._voted_items.add((category, target_user))
         if is_valid:
             theme.style_button(btn_yes, variant="success")
             theme.style_button(btn_no, variant="ghost")
@@ -297,6 +300,13 @@ class GameScreen(BaseScreen):
 
     def _on_submit_votes_click(self):
         """Called when the user clicks the submit button."""
+        if len(self._voted_items) < len(self._vote_buttons):
+            messagebox.showwarning(
+                "Incomplete votes", 
+                "Please validate or invalidate all words before submitting!"
+            )
+            return
+        
         for btns in self._vote_buttons.values():
             btns["yes"].configure(state="disabled")
             btns["no"].configure(state="disabled")
