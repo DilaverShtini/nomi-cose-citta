@@ -50,11 +50,15 @@ class ClientHandler:
                     elif msg_obj.type == MessageType.CMD_START_GAME:
                         await self._handle_start_game(msg_obj.payload)
                     elif msg_obj.type == MessageType.CMD_SUBMIT:
-                        words = msg_obj.payload.get("words", {})
-                        await self.server.session.receive_answers(self.username, words)
+                        if msg_obj.payload.__contains__("words"):
+                            words = msg_obj.payload.get("words", {})
+                            await self.server.session.receive_answers(self.username, words)
+                        elif msg_obj.payload.__contains__("votes"):
+                            votes = msg_obj.payload.get("votes", {})
+                            print(f"Votes received from {self.username}: {votes}")
+                            #TODO: vote aggregation and results calculation
                     elif msg_obj.type == MessageType.CMD_LOBBY_ACTION:
                         await self._handle_lobby_action(msg_obj.payload)
-
                 except ValueError as e:
                     print(f"[ERROR] Invalid message from {self.addr}: {e}")
                     print(f"[ERROR] Invalid message from {self.addr}: {e}")

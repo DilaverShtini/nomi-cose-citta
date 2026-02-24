@@ -228,7 +228,6 @@ class GameScreen(BaseScreen):
         self.update_status("Time's up! Waiting for the results...")
         self._timer.set_expired()
 
-    # All'interno della classe GameScreen:
 
     def build_voting_ui(self, words_to_vote: dict, my_username: str):
         """
@@ -238,6 +237,8 @@ class GameScreen(BaseScreen):
             w.destroy()
 
         self.update_status("Voting phase: validate or invalidate the words submitted by other players.")
+        self._vote_buttons = {}
+
         for category, users_words in words_to_vote.items():
             cat_label = tk.Label(
                 self._categories_frame, 
@@ -257,24 +258,49 @@ class GameScreen(BaseScreen):
                     row_frame, text=info_text, font=theme.FONT_BODY,
                     bg=theme.BG_PAGE, fg=theme.INK, width=30, anchor="w"
                 ).pack(side="left")
-                btn_yes = tk.Button(
-                    row_frame, text="Valida", bg="#d4edda", relief="flat", padx=10,
-                    command=lambda c=category, t=target_user, r=row_frame: self._cast_vote(t, c, True, r)
-                )
-                btn_yes.pack(side="left", padx=5)
-                btn_no = tk.Button(
-                    row_frame, text="Invalida", bg="#f8d7da", relief="flat", padx=10,
-                    command=lambda c=category, t=target_user, r=row_frame: self._cast_vote(t, c, False, r)
-                )
+                btn_yes = tk.Button(row_frame, text="Valid")
+                theme.style_button(btn_yes, variant="ghost")
+                btn_yes.pack(side="left", padx=5)             
+                btn_no = tk.Button(row_frame, text="Invalid")
+                theme.style_button(btn_no, variant="ghost")
                 btn_no.pack(side="left", padx=5)
+                btn_yes.configure(
+                    command=lambda c=category, t=target_user, by=btn_yes, bn=btn_no: self._cast_vote(t, c, True, by, bn)
+                )
+                btn_no.configure(
+                    command=lambda c=category, t=target_user, by=btn_yes, bn=btn_no: self._cast_vote(t, c, False, by, bn)
+                )
+                self._vote_buttons[(category, target_user)] = {"yes": btn_yes, "no": btn_no}
+        submit_frame = tk.Frame(self._categories_frame, bg=theme.BG_PAGE)
+        submit_frame.pack(fill="x", pady=(30, 10))
+        self._submit_votes_btn = tk.Button(
+            submit_frame, text="Submit votes", 
+            command=self._on_submit_votes_click
+        )
+        theme.style_button(self._submit_votes_btn, variant="primary")
+        self._submit_votes_btn.pack()
+
         self.frame.update_idletasks()
         self._canvas.configure(scrollregion=self._canvas.bbox("all"))
 
-
-    def _cast_vote(self, target_user: str, category: str, is_valid: bool, row_frame: tk.Frame):
-        """Manages the vote casting process for a specific user and category."""
-        for widget in row_frame.winfo_children():
-            if isinstance(widget, tk.Button):
-                widget.configure(state="disabled")
+    def _cast_vote(self, target_user: str, category: str, is_valid: bool, btn_yes: tk.Button, btn_no: tk.Button):
+        """Handle the logic when a user clicks "Valid" or "Invalid" for a given word. 
+        Updates button states and notifies the Controller."""
+        if is_valid:
+            theme.style_button(btn_yes, variant="success")
+            theme.style_button(btn_no, variant="ghost")
+        else:
+            theme.style_button(btn_yes, variant="ghost")
+            theme.style_button(btn_no, variant="danger")
         if hasattr(self.manager, 'on_vote_cast') and self.manager.on_vote_cast:
             self.manager.on_vote_cast(target_user, category, is_valid)
+
+    def _on_submit_votes_click(self):
+        """Called when the user clicks the submit button."""
+        for btns in self._vote_buttons.values():
+            btns["yes"].configure(state="disabled")
+            btns["no"].configure(state="disabled")
+        self._submit_votes_btn.configure(state="disabled", text="Voti Inviati!", bg="gray")
+        self.update_status("Waiting for other players to finish voting...")
+        if hasattr(self.manager, 'on_submit_votes') and self.manager.on_submit_votes:
+            self.manager.on_submit_votes()

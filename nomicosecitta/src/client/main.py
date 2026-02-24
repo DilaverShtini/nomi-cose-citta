@@ -25,6 +25,7 @@ class ClientController:
         self.network = None
         self.username = ""
         self.peer_map = {}
+        self.my_votes = {}
 
         self.root = tk.Tk()
         self.gui = GUIManager(self.root)
@@ -35,6 +36,7 @@ class ClientController:
         self.gui.on_submit_answers         = self.submit_answers
         self.gui.on_lobby_settings_changed = self.send_lobby_settings
         self.gui.on_vote_cast = self.handle_user_vote
+        self.gui.on_submit_votes = self.submit_final_votes
 
         self.gui.on_category_vote_changed  = self.send_category_vote
 
@@ -159,6 +161,7 @@ class ClientController:
 
         elif msg_obj.type == MessageType.EVT_VOTING_START:
             words_to_vote = msg_obj.payload.get("words_to_vote", {})
+            self.my_votes = {cat: {} for cat in words_to_vote.keys()}
             print(f"[CONTROLLER] Starting voting phase for: {words_to_vote}")
             self.root.after(0, lambda: self.gui.show_voting_phase(words_to_vote, self.username))
 
@@ -177,7 +180,7 @@ class ClientController:
             is_valid = msg_obj.payload["valid"]
             voter = msg_obj.sender
             print(f"[P2P] Vote received from {voter}: {target} -> {category} is {is_valid}")
-            #TODO: Manage vote received.
+            #TODO: Update local GUI based on received votes 
 
         else:
             self.root.after(0, lambda: self.gui.append_log(
@@ -227,12 +230,30 @@ class ClientController:
                 await self.network.send_p2p(peer_address, vote_msg)
     
     def handle_user_vote(self, target_user, category, is_valid):
-        """Called when the user casts a vote in the GUI. Broadcasts the vote to peers."""
+        """Called when the user casts a vote in the GUI. Broadcasts the vote to peers and saves it."""
+        if category in self.my_votes:
+            self.my_votes[category][target_user] = is_valid
         if self.network and self.network.is_connected():
             asyncio.run_coroutine_threadsafe(
                 self.broadcast_vote(target_user, category, is_valid),
                 self.loop
             )
+
+    def submit_final_votes(self):
+        """Called when the user confirms and locks in their final votes."""
+        print(f"[CONTROLLER] Sending final votes to server: {self.my_votes}")
+        if self.network and self.network.is_connected():
+            submit_votes_msg = Message(
+                type=MessageType.CMD_SUBMIT,
+                sender=self.username,
+                payload={"votes": self.my_votes}
+            )
+            asyncio.run_coroutine_threadsafe(
+                self.network.send(submit_votes_msg),
+                self.loop
+            )
+        else:
+            print("[ERROR] Disconnected. Impossible to submit votes.")
 
     def handle_disconnection(self, reason):
         self.root.after(0, lambda: messagebox.showwarning("Disconnected", f"Lost connection: {reason}"))
