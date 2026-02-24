@@ -142,8 +142,10 @@ class GameSession:
             payload={"words_to_vote": self.words_to_vote}
         )
         await self.server.broadcast(vote_msg)
-        self.received_answers= {}
-        self.words_to_vote = {}
+        
+        #TODO: move after vote processing is implemented
+        #self.received_answers= {}
+        #self.words_to_vote = {}
 
     async def _end_round(self):
         print("[GAME] Time's up!.")
@@ -158,3 +160,46 @@ class GameSession:
 
         self._process_initial_validation()
         await self._start_voting_phase()
+
+    async def handle_player_disconnection(self, username):
+        """Manage player disconnection during the game."""
+        print(f"[GAME] Handling disconnection of {username} during state {self.state}")
+        active_count = self.server.get_active_count()
+
+        if self.state == GameState.WAITING_INPUT:
+            if len(self.received_answers) >= active_count:
+                if self._timer_task and not self._timer_task.done():
+                    self._timer_task.cancel()
+                self._process_initial_validation()
+                await self._start_voting_phase()
+
+        elif self.state == GameState.VOTING:
+                #TODO: Implement early vote processing if needed
+                pass
+
+    async def sync_reconnecting_client(self, client_handler):
+        peermap_msg = Message(
+            type=MessageType.EVT_PEER_MAP,
+            sender="SERVER",
+            payload={"peermap": self.server.get_peer_map()}
+        )
+        await client_handler.send(peermap_msg.to_bytes())
+        sync_msg = Message(
+            type=MessageType.EVT_ROUND_START,
+            sender="SERVER",
+            payload={
+                "letter": self.current_round.letter,
+                "categories": self.current_round.categories,
+                "duration": 0,
+                "round_number": self.current_round_number
+            }
+        )
+        await client_handler.send(sync_msg.to_bytes())
+
+        if self.state == GameState.VOTING:
+            vote_msg = Message(
+                type=MessageType.EVT_VOTING_START,
+                sender="SERVER",
+                payload={"words_to_vote": self.words_to_vote}
+            )
+            await client_handler.send(vote_msg.to_bytes())

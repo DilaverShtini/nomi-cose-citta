@@ -124,8 +124,8 @@ class ClientController:
         t = msg_obj.type
 
         if t == MessageType.EVT_LOBBY_UPDATE:
-            self.root.after(0, self.gui.show_lobby)
-
+            if self.gui._current_screen.name == "LOBBY" or self.gui._current_screen.name == "LOGIN":
+                self.root.after(0, self.gui.show_lobby)
             players  = msg_obj.payload.get("players", [])
             admin    = msg_obj.payload.get("admin")
             settings = msg_obj.payload.get("settings", {})

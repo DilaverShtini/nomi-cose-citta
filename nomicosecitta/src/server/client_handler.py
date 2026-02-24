@@ -84,6 +84,8 @@ class ClientHandler:
 
         print(f"[JOIN] {self.addr} -> {username}")
         await self._broadcast_lobby_update()
+        if self.server.session.state.name != "LOBBY":
+            await self.server.session.sync_reconnecting_client(self)
 
     async def _handle_start_game(self, settings):
         if not self.username:
@@ -159,3 +161,4 @@ class ClientHandler:
 
         if had_username:
             await self._broadcast_lobby_update()
+            await self.server.session.handle_player_disconnection(self.username)
