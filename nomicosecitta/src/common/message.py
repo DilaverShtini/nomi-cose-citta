@@ -9,6 +9,7 @@ class MessageType(StrEnum):
     CMD_JOIN = auto()
     CMD_START_GAME = auto()
     CMD_SUBMIT= auto()
+    CMD_LOBBY_ACTION = auto()
 
     # server -> client
     EVT_LOBBY_UPDATE = auto()

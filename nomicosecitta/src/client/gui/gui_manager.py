@@ -12,12 +12,8 @@ from src.client.gui.screens import LoginScreen, LobbyScreen, GameScreen
 from src.client.gui.screens.base_screen import BaseScreen
 from src.client.gui import theme
 
+
 class Screen(Enum):
-    """
-    Available application screens.
-    
-    Add new screens here when extending the application.
-    """
     LOGIN = auto()
     LOBBY = auto()
     GAME = auto()
@@ -29,27 +25,24 @@ class Screen(Enum):
 class GUIManager:
     """
     Central manager for the GUI subsystem.
-    
-    Responsibilities:
-    - Initialize and manage all screens
-    - Handle screen navigation
-    - Provide unified callback interface for the controller
-    - Delegate method calls to appropriate screens
     """
 
     def __init__(self, root: tk.Tk):
-        """Initialize the GUI manager."""
         self.root = root
         self._configure_window()
-        
+
         self.on_connect: Optional[Callable[[str, str], None]] = None
         self.on_send_message: Optional[Callable[[str], None]] = None
         self.on_start_game: Optional[Callable[[dict], None]] = None
         self.on_submit_answers: Optional[Callable[[dict], None]] = None
 
+        self.on_lobby_settings_changed: Optional[Callable[[dict], None]] = None
+
+        self.on_category_vote_changed: Optional[Callable[[list], None]] = None
+
         self._screens: Dict[Screen, BaseScreen] = {}
         self._current_screen: Optional[Screen] = None
-        
+
         self._init_screens()
         self.navigate_to(Screen.LOGIN)
 
@@ -64,18 +57,15 @@ class GUIManager:
         self._screens[Screen.LOBBY] = LobbyScreen(self.root, self)
         self._screens[Screen.GAME] = GameScreen(self.root, self)
 
-    # Navigation Methods
+    # Navigation methods
 
     def navigate_to(self, screen: Screen):
-        """Navigate to a specific screen."""
         if self._current_screen is not None:
             self._screens[self._current_screen].hide()
-        
         self._current_screen = screen
         self._screens[screen].show()
 
     def get_screen(self, screen: Screen) -> BaseScreen:
-        """Get a screen instance for direct access."""
         return self._screens[screen]
 
     @property
@@ -91,7 +81,7 @@ class GUIManager:
     def show_game(self):
         self.navigate_to(Screen.GAME)
 
-    # Screen Properties
+    # Screen properties
 
     @property
     def login(self) -> LoginScreen:
@@ -105,7 +95,7 @@ class GUIManager:
     def game(self) -> GameScreen:
         return self._screens[Screen.GAME]
 
-    # Lobby Delegations
+    # Lobby delegations
 
     def set_admin(self, is_admin: bool):
         self.lobby.set_admin(is_admin)
@@ -122,8 +112,11 @@ class GUIManager:
     def get_game_settings(self) -> dict:
         return self.lobby.get_settings()
 
-    # Game delegations
+    def update_lobby_settings(self, mode: str, num_extra_categories: int):
+        self.lobby.update_lobby_settings(mode, num_extra_categories)
 
+    # Game delegations
+    
     def update_game_letter(self, letter: str):
         self.game.update_letter(letter)
 

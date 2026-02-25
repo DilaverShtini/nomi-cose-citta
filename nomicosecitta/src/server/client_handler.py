@@ -5,17 +5,13 @@ import os
 from src.common.constants import BUFFER_SIZE, ENCODING
 from src.common.message import Message, MessageType
 
+# action_type values for CMD_LOBBY_ACTION
+ACTION_SETTINGS   = "settings"
+ACTION_CATEGORIES = "categories"
+
 class ClientHandler:
     """
     Handles TCP connection with a single client.
-    
-    Attributes:
-        reader: AsyncIO StreamReader.
-        writer: AsyncIO StreamWriter.
-        addr: Tuple (ip, port) of the client.
-        server: Reference to the GameServer.
-        username: Player's username (set after JOIN).
-        p2p_port: Client's P2P listening port (for peer discovery).
     """
 
     def __init__(self, reader, writer, server):
@@ -24,8 +20,6 @@ class ClientHandler:
         self.server = server
         self.addr = writer.get_extra_info('peername')
         self.running = True
-
-        # Player info (it will be popolated after CMD_JOIN)
         self.username = None
         self.p2p_port = None
 
@@ -40,7 +34,7 @@ class ClientHandler:
                 try: 
                     data = await self.reader.read(BUFFER_SIZE)
                     if not data:
-                        print(f"[DEBUG] {self.addr} Connessione chiusa dal client (0 bytes)")
+                        print(f"[DEBUG] {self.addr} connection closed (0 bytes)")
                         break
                     msg_obj = Message.from_bytes(data)
                     if msg_obj.type == MessageType.CMD_JOIN:
@@ -50,8 +44,11 @@ class ClientHandler:
                     elif msg_obj.type == MessageType.CMD_SUBMIT:
                         words = msg_obj.payload.get("words", {})
                         await self.server.session.receive_answers(self.username, words)
+                    elif msg_obj.type == MessageType.CMD_LOBBY_ACTION:
+                        await self._handle_lobby_action(msg_obj.payload)
+
                 except ValueError as e:
-                    print(f"[ERROR] Messaggio invalido da {self.addr}: {e}")
+                    print(f"[ERROR] Invalid message from {self.addr}: {e}")
         except Exception as e:
             print(f"[ERROR] Handler {self.addr}: {e}")
         finally:
@@ -61,23 +58,16 @@ class ClientHandler:
         username = payload.get("username", "").strip()
 
         if not username or self.server.is_username_taken(username):
-            err_msg = Message(MessageType.EVT_ERROR, "SERVER", {"error": "Nome non valido o in uso"})
-            await self.send(err_msg.to_bytes())
+            await self.send(Message(
+                MessageType.EVT_ERROR, "SERVER",
+                {"error": "Nome non valido o in uso"}
+            ).to_bytes())
             return
-
+        
         self.username = username
         self.server.set_admin(username)
         print(f"[JOIN] {self.addr} -> {username}")
-
-        update_msg = Message(
-            type=MessageType.EVT_LOBBY_UPDATE,
-            sender="SERVER",
-            payload={
-                "players": list(self.server.get_active_usernames()),
-                "admin": self.server.get_admin()
-            }
-        )
-        await self.server.broadcast(update_msg)
+        await self._broadcast_lobby_update()
 
     async def _handle_start_game(self, settings):
         if not self.username:
@@ -87,8 +77,43 @@ class ClientHandler:
         success, info = await self.server.session.start_game(self.username, settings)
         
         if not success:
-            err_msg = Message(MessageType.EVT_ERROR, "SERVER", {"error": info})
-            await self.send(err_msg.to_bytes())
+            await self.send(Message(
+                MessageType.EVT_ERROR, "SERVER", {"error": info}
+            ).to_bytes())
+
+    async def _handle_lobby_action(self, payload):
+        action_type = payload.get("action_type")
+
+        if action_type == ACTION_SETTINGS:
+            if self.username != self.server.get_admin():
+                print(f"[WARN] {self.username} tried to change settings but is not admin.")
+                return
+            self.server.update_lobby_settings(payload)
+            print(f"[SETTINGS] Admin {self.username}: {self.server.lobby_settings}")
+            # Sync all clients via the already-existing EVT_LOBBY_UPDATE
+            await self._broadcast_lobby_update()
+
+        elif action_type == ACTION_CATEGORIES:
+            if not self.username:
+                return
+            categories = payload.get("categories", [])
+            self.server.set_category_votes(self.username, categories)
+            print(f"[VOTE CATS] {self.username}: {categories}")
+
+        else:
+            print(f"[WARN] Unknown CMD_LOBBY_ACTION action_type={action_type!r}")
+
+
+    async def _broadcast_lobby_update(self):
+        await self.server.broadcast(Message(
+            type=MessageType.EVT_LOBBY_UPDATE,
+            sender="SERVER",
+            payload={
+                "players": list(self.server.get_active_usernames()),
+                "admin": self.server.get_admin(),
+                "settings": self.server.lobby_settings,
+            }
+        ))
 
     async def send(self, data: bytes):
         if self.running:
@@ -102,10 +127,6 @@ class ClientHandler:
                 print(f"[ERROR] Errore invio a {self.addr}: {e}")
 
     async def close_connection(self):
-        """
-        Closes resources and deregisteres from the server.
-        """
-
         if not self.running:
             return
         
@@ -116,15 +137,9 @@ class ClientHandler:
         try:
             self.writer.close()
             await self.writer.wait_closed()
-        except:
+        except Exception:
             pass
         print(f"[DISCONNECTED] {self.addr} disconnected.")
 
         if had_username:
-            active_users = list(self.server.get_active_usernames())
-            update_msg = Message(
-                type=MessageType.EVT_LOBBY_UPDATE,
-                sender="SERVER",
-                payload={"players": active_users}
-            )
-            await self.server.broadcast(update_msg)
+            await self._broadcast_lobby_update()

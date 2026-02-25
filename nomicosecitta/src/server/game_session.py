@@ -1,4 +1,5 @@
 import asyncio
+from src.common.constants import GAME_MODE_CLASSIC, GAME_MODE_CLASSIC_PLUS
 from src.common.message import Message, MessageType, GameState
 from src.server.round_manager import RoundManager
 
@@ -15,6 +16,7 @@ class GameSession:
         self.round_data = {}
         self.words_to_vote = {}
         self.current_round_number = 0
+        self._timer_task = None
 
     async def start_game(self, request_username, settings):
         """Handle game start request from admin."""
@@ -30,45 +32,66 @@ class GameSession:
 
         self.state = GameState.WAITING_INPUT
 
-        self.current_round = RoundManager(settings, self.old_letters)
-        self.old_letters.add(self.current_round.letter)
+        mode = settings.get("mode", GAME_MODE_CLASSIC)
+        num_extra = int(settings.get("num_extra_categories", 2))
 
-        self.round_time = int(settings["round_time"])
+        aggregated = self.server.get_aggregated_categories(num_extra)
+
+        if mode == GAME_MODE_CLASSIC:
+            final_categories = ["Nomi", "Cose ", "Città"]
+        elif mode == GAME_MODE_CLASSIC_PLUS:
+            final_categories = ["Nomi", "Cose ", "Città"] + aggregated
+        else:
+            final_categories = aggregated if aggregated else ["Nomi", "Cose ", "Città"]
+
+        settings_for_round = dict(settings)
+        settings_for_round["selected_categories"] = (
+            aggregated if mode != GAME_MODE_CLASSIC else []
+        )
+
+        self.server.reset_category_votes()
+
+        self.current_round = RoundManager(settings_for_round, self.old_letters)
+        self.current_round.categories = final_categories
+
+        self.old_letters.add(self.current_round.letter)
+        self.round_time = int(settings.get("round_time", 60))
         self.current_round_number += 1
 
-        print(f"[GAME] Inizio Round: Lettera {self.current_round.letter}, Categorie {self.current_round.categories}")
+        print(
+            f"[GAME] Starting round {self.current_round_number}: "
+            f"Letter {self.current_round.letter}, Categories {final_categories}"
+        )
 
         start_msg = Message(
             type=MessageType.EVT_ROUND_START,
             sender="SERVER",
             payload={
                 "letter": self.current_round.letter,
-                "categories": self.current_round.categories,
+                "categories": final_categories,
                 "duration": self.round_time,
-                "round_number": self.current_round_number
+                "round_number": self.current_round_number,
             }
         )
         await self.server.broadcast(start_msg)
 
         self._timer_task = asyncio.create_task(
-            self.current_round.start_timer(
-                callback_on_end=self._end_round
-            )
+            self.current_round.start_timer(callback_on_end=self._end_round)
         )
 
         return True, "Game started"
 
     async def receive_answers(self, username, words):
         if self.state != GameState.WAITING_INPUT:
-            print(f"[WARN] Submit di {username} rifiutato: fuori tempo massimo.")
+            print(f"[WARN] Submit of {username} rejected: out of time.")
             return
 
         self.received_answers[username] = words
-        print(f"[GAME] Ricevute risposte da {username}.")
+        print(f"[GAME] Received answers from {username}.")
         total_players = self.server.get_active_count()
         
         if len(self.received_answers) >= total_players:
-            print("[GAME] Tutti i giocatori hanno consegnato in anticipo!")
+            print("[GAME] All players submitted on time!")
             if self._timer_task and not self._timer_task.done():
                 self._timer_task.cancel()
             
@@ -98,7 +121,7 @@ class GameSession:
                     }
                     self.words_to_vote[category][user] = word
         
-        print(f"[GAME] Validazione completata. dati: {self.round_data}")
+        print(f"[GAME] Validation completed. Data: {self.round_data}")
 
     async def _start_voting_phase(self):
         self.state = GameState.VOTING
@@ -112,8 +135,7 @@ class GameSession:
         self.words_to_vote = {}
 
     async def _end_round(self):
-        """End time: change WAITING_INPUT -> VOTING/SCORING"""
-        print("[GAME] Tempo scaduto!.")
+        print("[GAME] Time's up!.")
         self.state = GameState.VOTING
 
         end_msg = Message(
