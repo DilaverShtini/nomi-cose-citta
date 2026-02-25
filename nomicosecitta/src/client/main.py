@@ -135,10 +135,12 @@ class ClientController:
             self.root.after(0, lambda: self.gui.update_player_list(players, admin_username=admin))
 
             if settings:
-                mode      = settings.get("mode", GAME_MODE_CLASSIC)
-                num_extra = settings.get("num_extra_categories", 2)
+                mode       = settings.get("mode", GAME_MODE_CLASSIC)
+                num_extra  = settings.get("num_extra_categories", 2)
+                round_time = settings.get("round_time")
                 self.root.after(
-                    0, lambda m=mode, n=num_extra: self.gui.update_lobby_settings(m, n))
+                    0, lambda m=mode, n=num_extra, rt=round_time:
+                        self.gui.update_lobby_settings(m, n, rt))
         
         elif msg_obj.type == MessageType.EVT_PEER_MAP:
             self.peer_map = msg_obj.payload.get("peermap", {})

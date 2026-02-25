@@ -16,7 +16,7 @@ from src.common.constants import (
 
 
 class LobbyScreen(BaseScreen):
-    """Lobby screen — stile quaderno scolastico."""
+    """Lobby screen"""
 
     def _setup_ui(self):
         self.frame.configure(bg=theme.BG_PAGE)
@@ -303,6 +303,7 @@ class LobbyScreen(BaseScreen):
             highlightthickness=0,
             activebackground=theme.BLUE_INK,
             sliderrelief="flat",
+            command=self._on_round_time_change_by_admin,
         )
         self._time_scale.pack(side="left", fill="x", expand=True, padx=6)
 
@@ -348,6 +349,9 @@ class LobbyScreen(BaseScreen):
     def _on_num_extra_change_by_admin(self):
         new_max = self._num_extra_var.get()
         self._apply_max_categories(new_max)
+        self._notify_settings_changed()
+
+    def _on_round_time_change_by_admin(self, value=None):
         self._notify_settings_changed()
 
     def _notify_settings_changed(self):
@@ -477,10 +481,12 @@ class LobbyScreen(BaseScreen):
             "round_time": self._round_time_var.get(),
         }
 
-    def update_lobby_settings(self, mode: str, num_extra_categories: int):
+    def update_lobby_settings(self, mode: str, num_extra_categories: int, round_time: int = None):
         self._game_mode_var.set(mode)
         self._num_extra_var.set(num_extra_categories)
         self._apply_max_categories(num_extra_categories)
+        if round_time is not None:
+            self._round_time_var.set(round_time)
         self._on_mode_change()
         self._update_category_count_label()
 

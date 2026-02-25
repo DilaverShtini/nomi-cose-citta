@@ -117,8 +117,8 @@ class GUIManager:
     def get_game_settings(self) -> dict:
         return self.lobby.get_settings()
 
-    def update_lobby_settings(self, mode: str, num_extra_categories: int):
-        self.lobby.update_lobby_settings(mode, num_extra_categories)
+    def update_lobby_settings(self, mode: str, num_extra_categories: int, round_time: int = None):
+        self.lobby.update_lobby_settings(mode, num_extra_categories, round_time)
 
     # Game delegations
     
