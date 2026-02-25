@@ -171,8 +171,10 @@ class ClientController:
             asyncio.run_coroutine_threadsafe(self.network.disconnect(), self.loop)
 
         elif t == MessageType.MSG_CHAT:
-            chat_text = f"{msg_obj.sender}: {msg_obj.payload.get('text', '')}"
-            self.root.after(0, lambda: self.gui.append_log(chat_text))
+            sender = msg_obj.sender
+            text = msg_obj.payload.get("text", "")
+            chat_msg = f"{sender}: {text}"
+            self.root.after(0, lambda: self.gui.append_log(chat_msg))
 
         elif msg_obj.type == MessageType.MSG_VOTE:
             target = msg_obj.payload["target"]
@@ -201,18 +203,6 @@ class ClientController:
             )
         else:
             print("[ERROR] Disconnected. Impossible to submit answers.")
-
-    def send_message(self, msg_text: str):
-        if self.network and self.network.is_connected():
-            asyncio.run_coroutine_threadsafe(
-                self.network.send(Message(
-                    type=MessageType.MSG_CHAT,
-                    sender=self.username,
-                    payload={"text": msg_text},
-                )),
-                self.loop,
-            )
-            self.gui.append_log(f"TU: {msg_text}")
 
     async def broadcast_vote(self, target_user, category, is_valid):
         """Send a vote to all peers via P2P."""
@@ -244,7 +234,6 @@ class ClientController:
     def submit_final_votes(self):
         """Called when the user confirms and locks in their final votes."""
         print(f"[CONTROLLER] Sending final votes to server: {self.my_votes}")
-        self.gui.append_log(f"YOU: {msg_text}")
         
         if self.network and self.network.is_connected():
             submit_votes_msg = Message(
@@ -253,39 +242,36 @@ class ClientController:
                 payload={"votes": self.my_votes}
             )
             asyncio.run_coroutine_threadsafe(
-                self.broadcast_submit_votes(submit_votes_msg),
+                self.network.send(submit_votes_msg),
                 self.loop
             )
+        else:
+            print("[ERROR] Disconnected. Impossible to submit votes.")
 
-    async def broadcast_vote(self, target_user, category, is_valid):
-        """Send a vote to all peers via P2P."""
-        vote_msg = Message(
-            type=MessageType.MSG_VOTE,
-            sender=self.username,
-            payload={
-                "target": target_user,
-                "category": category,
-                "valid": is_valid
-            }
-        )
-        for peer_name, peer_address in self.peer_map.items():
-            if peer_name != self.username:
-                await self.network.send_p2p(peer_address, vote_msg)
+    def send_message(self, msg_text: str):
+        """Method called by the GUI when the user presses enter in the chat."""
+        if not msg_text.strip():
+            return
 
-    async def broadcast_chat(self, msg_text):
-        """Send a chat message to all peers via P2P."""
+        self.gui.append_log(f"YOU: {msg_text}")
+
         chat_msg = Message(
             type=MessageType.MSG_CHAT,
             sender=self.username,
             payload={"text": msg_text}
         )
-        
+
+        asyncio.run_coroutine_threadsafe(
+            self.broadcast_chat_p2p(chat_msg),
+            self.loop
+        )
+
+    async def broadcast_chat_p2p(self, chat_msg: Message):
+        """Send a chat message to all peers via P2P."""
         for peer_name, peer_address in self.peer_map.items():
             if peer_name != self.username:
                 await self.network.send_p2p(peer_address, chat_msg)
 
-    def handle_disconnection(self, reason):
-        self.root.after(0, lambda: messagebox.showwarning("Disconnected", f"Lost connection: {reason}"))
     def handle_disconnection(self, reason: str):
         self.root.after(0, lambda: messagebox.showwarning(
             "Disconnected", f"Connection lost: {reason}"))

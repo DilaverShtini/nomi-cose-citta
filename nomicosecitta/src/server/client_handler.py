@@ -31,7 +31,6 @@ class ClientHandler:
         self.running = True
         self.username = None
         self.p2p_address = None
-        self.p2p_address = None
 
     async def handle(self):
         """
@@ -78,11 +77,6 @@ class ClientHandler:
         
         self.username = username
         self.server.set_admin(username)
-        p2p_port = payload.get("p2p_port")
-        if p2p_port:
-            client_ip = self.addr[0]
-            self.p2p_address = f"{client_ip}:{p2p_port}"
-
         p2p_port = payload.get("p2p_port")
         if p2p_port:
             client_ip = self.addr[0]
