@@ -5,11 +5,11 @@ import tkinter as tk
 from tkinter import messagebox
 from src.client.gui.screens.base_screen import BaseScreen
 from src.client.gui import theme
+from src.common.constants import DEFAULT_SERVER_HOST
+
 
 class LoginScreen(BaseScreen):
-    """
-    Login screen with username and server IP input fields.
-    """
+    """ Login screen """
 
     def _setup_ui(self):
         self.frame.configure(bg=theme.BG_PAGE)
@@ -57,36 +57,25 @@ class LoginScreen(BaseScreen):
         theme.style_entry(self._username_entry)
         self._username_entry.pack(fill="x", ipady=6)
 
-        tk.Label(card, text="Server IP:", font=theme.FONT_LABEL,
-                 bg=theme.BG_PAGE, fg=theme.INK, anchor="w").pack(fill="x", pady=(14, 4))
-        self._ip_var = tk.StringVar(value="127.0.0.1")
-        self._ip_entry = tk.Entry(card, textvariable=self._ip_var, width=28)
-        theme.style_entry(self._ip_entry)
-        self._ip_entry.pack(fill="x", ipady=6)
-
         btn = tk.Button(card, text="Connect",
                         command=self._handle_connect)
         theme.style_button(btn, "primary")
         btn.pack(fill="x", pady=(22, 0), ipady=4)
 
-        self._username_entry.bind("<Return>", lambda e: self._ip_entry.focus_set())
-        self._ip_entry.bind("<Return>", lambda e: self._handle_connect())
+        self._username_entry.bind("<Return>", lambda e: self._handle_connect())
 
     def on_enter(self):
         self._username_entry.focus_set()
 
     def _handle_connect(self):
         username = self._username_var.get().strip()
-        ip = self._ip_var.get().strip()
-        if username and ip:
+        if username:
             if self.manager.on_connect:
-                self.manager.on_connect(ip, username)
+                self.manager.on_connect(DEFAULT_SERVER_HOST, username)
         else:
             messagebox.showerror("Error",
-                "Missing data: please enter both username and server IP.")
+                "Missing data: please enter your username.")
 
     def get_username(self): return self._username_var.get().strip()
-    def get_ip(self):       return self._ip_var.get().strip()
-    def clear(self):
-        self._username_var.set("")
-        self._ip_var.set("127.0.0.1")
+    def get_ip(self):       return DEFAULT_SERVER_HOST
+    def clear(self):        self._username_var.set("")
