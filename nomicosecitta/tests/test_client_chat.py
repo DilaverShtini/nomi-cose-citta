@@ -33,9 +33,13 @@ class TestClientChat(unittest.IsolatedAsyncioTestCase):
             self.controller.loop.close()
 
     async def test_broadcast_chat_sends_to_peers_only(self):
-        test_message = "Hello everyone"
+        test_message = Message(
+            type=MessageType.MSG_CHAT, 
+            sender="Veri", 
+            payload={"text": "Hello everyone"}
+        )
         
-        await self.controller.broadcast_chat(test_message)
+        await self.controller.broadcast_chat_p2p(test_message)
         
         self.assertEqual(self.controller.network.send_p2p.call_count, 2)
         
@@ -50,18 +54,25 @@ class TestClientChat(unittest.IsolatedAsyncioTestCase):
         msg_obj = messages_sent[0]
         self.assertEqual(msg_obj.type, MessageType.MSG_CHAT)
         self.assertEqual(msg_obj.sender, "Veri")
-        self.assertEqual(msg_obj.payload["text"], test_message)
+        self.assertEqual(msg_obj.payload["text"], "Hello everyone")
 
     @patch('src.client.main.asyncio.run_coroutine_threadsafe')
     def test_send_message_updates_gui_and_broadcasts(self, mock_run_coroutine):
         self.controller.network.is_connected.return_value = True
 
-        with patch.object(self.controller, 'broadcast_chat') as mock_broadcast:
+        with patch.object(self.controller, 'broadcast_chat_p2p') as mock_broadcast:
 
             self.controller.send_message("Messaggio di test")
 
             self.controller.gui.append_log.assert_called_once_with("YOU: Messaggio di test")
-            mock_broadcast.assert_called_once_with("Messaggio di test")
+            
+            mock_broadcast.assert_called_once()
+
+            sent_msg = mock_broadcast.call_args[0][0]
+            
+            self.assertEqual(sent_msg.type, MessageType.MSG_CHAT)
+            self.assertEqual(sent_msg.payload["text"], "Messaggio di test")
+
             mock_run_coroutine.assert_called_once()
 
             coroutine_generata = mock_run_coroutine.call_args[0][0]
