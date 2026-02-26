@@ -334,6 +334,10 @@ class GameSession:
         print(f"[GAME] Player {username} disconnected during state {self.state}.")
         active_count = self.server.get_active_count()
 
+        if active_count == 0:
+            self.reset()
+            return
+
         if self.state == GameState.WAITING_INPUT:
             if len(self.received_answers) >= active_count and active_count > 0:
                 if self._timer_task and not self._timer_task.done():
@@ -380,3 +384,20 @@ class GameSession:
                 sender="SERVER",
                 payload={"words_to_vote": self.words_to_vote}
             ).to_bytes())
+
+    def reset(self):
+        """Reset the entire game session to initial state. Called when admin ends the game or all players leave."""
+        self.state = GameState.LOBBY
+        self.old_letters.clear()
+        self.current_round = None
+        self.received_answers.clear()
+        self.round_data.clear()
+        self.words_to_vote.clear()
+        self.current_round_number = 0
+
+        if self._timer_task and not self._timer_task.done():
+            self._timer_task.cancel()
+        self._timer_task = None
+
+        self.server.reset_category_votes()
+        self.server.admin_username = None
