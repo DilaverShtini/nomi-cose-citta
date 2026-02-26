@@ -184,7 +184,12 @@ class ClientController:
             is_valid = msg_obj.payload["valid"]
             voter = msg_obj.sender
             print(f"[P2P] Vote received from {voter}: {target} -> {category} is {is_valid}")
-            #TODO: Manage vote received.
+            self.root.after(0, lambda: self.gui.update_peer_vote(
+                target_user=target, 
+                category=category, 
+                voter=voter, 
+                is_valid=is_valid
+            ))
 
         else:
             self.root.after(0, lambda: self.gui.append_log(
