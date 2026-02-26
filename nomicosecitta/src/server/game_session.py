@@ -183,7 +183,7 @@ class GameSession:
             sender="SERVER",
             payload={"peermap": self.server.get_peer_map()}
         )
-        await client_handler.send(peermap_msg.to_bytes())
+        await self.server.broadcast(peermap_msg)
         sync_msg = Message(
             type=MessageType.EVT_ROUND_START,
             sender="SERVER",
