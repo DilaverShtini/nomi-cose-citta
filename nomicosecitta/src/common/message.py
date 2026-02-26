@@ -8,7 +8,7 @@ class MessageType(StrEnum):
     # client -> server
     CMD_JOIN = auto()
     CMD_START_GAME = auto()
-    CMD_SUBMIT= auto()
+    CMD_SUBMIT = auto()
     CMD_LOBBY_ACTION = auto()
 
     # server -> client
@@ -16,6 +16,7 @@ class MessageType(StrEnum):
     EVT_PEER_MAP = auto()
     EVT_ROUND_START = auto()
     EVT_VOTING_START = auto()
+    EVT_SCORE_UPDATE = auto()
     EVT_ROUND_END = auto()
     EVT_GAME_OVER = auto()
     EVT_ERROR = auto()
@@ -23,6 +24,7 @@ class MessageType(StrEnum):
     # client <-> client
     MSG_CHAT = auto()
     MSG_VOTE = auto()
+
 
 class GameState(StrEnum):
     """
@@ -33,6 +35,7 @@ class GameState(StrEnum):
     VOTING = auto()
     SCORING = auto()
     ENDED = auto()
+
 
 @dataclass
 class Message:
@@ -59,7 +62,6 @@ class Message:
         try:
             data = json.loads(json_str)
             msg_type = MessageType(data['type'])
-            
             return cls(
                 type=msg_type,
                 sender=data['sender'],

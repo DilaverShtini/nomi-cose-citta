@@ -62,3 +62,18 @@ MAX_EXTRA_CATEGORIES = 10
 MIN_ROUND_TIME = 30    # seconds
 MAX_ROUND_TIME = 180   # seconds
 DEFAULT_ROUND_TIME = 60
+
+# Scoring rules
+POINTS_UNIQUE_CATEGORY = 15
+POINTS_UNIQUE_WORD = 10
+POINTS_SHARED_WORD = 5
+POINTS_INVALID = 0 
+
+# Win condition
+TARGET_SCORE = 100
+
+#Voting phase duration (seconds) - server waits this long before forcing finalization
+VOTING_DURATION = 60
+
+# Seconds to show score screen before starting the next round automatically
+SCORE_DISPLAY_DELAY = 8
