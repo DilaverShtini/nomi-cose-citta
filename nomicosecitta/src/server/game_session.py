@@ -1,4 +1,5 @@
 import asyncio
+import time
 from src.common.constants import GAME_MODE_CLASSIC, GAME_MODE_CLASSIC_PLUS
 from src.common.message import Message, MessageType, GameState
 from src.server.round_manager import RoundManager
@@ -17,6 +18,7 @@ class GameSession:
         self.words_to_vote = {}
         self.current_round_number = 0
         self._timer_task = None
+        self.round_start_time = 0.0
 
     async def start_game(self, request_username, settings):
         """Handle game start request from admin."""
@@ -72,7 +74,7 @@ class GameSession:
             f"[GAME] Starting round {self.current_round_number}: "
             f"Letter {self.current_round.letter}, Categories {final_categories}"
         )
-
+        
         start_msg = Message(
             type=MessageType.EVT_ROUND_START,
             sender="SERVER",
@@ -84,7 +86,7 @@ class GameSession:
             }
         )
         await self.server.broadcast(start_msg)
-
+        self.round_start_time = time.time()
         self._timer_task = asyncio.create_task(
             self.current_round.start_timer(callback_on_end=self._end_round)
         )
@@ -184,13 +186,19 @@ class GameSession:
             payload={"peermap": self.server.get_peer_map()}
         )
         await self.server.broadcast(peermap_msg)
+        
+        time_passed = time.time() - self.round_start_time
+        time_left = int(self.round_time - time_passed)
+        if time_left < 0:
+            time_left = 0
+
         sync_msg = Message(
             type=MessageType.EVT_ROUND_START,
             sender="SERVER",
             payload={
                 "letter": self.current_round.letter,
                 "categories": self.current_round.categories,
-                "duration": 0,
+                "duration": time_left,
                 "round_number": self.current_round_number
             }
         )
