@@ -30,6 +30,7 @@ class GameSession:
         self.current_round_number: int = 0
         self.current_settings: dict = {}
         self.round_time: int = 60
+        self.round_start_time: float = 0.0
 
         # Async tasks
         self._timer_task: asyncio.Task | None = None
