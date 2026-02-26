@@ -253,9 +253,7 @@ class GameScreen(BaseScreen):
         self._timer.set_expired()
 
     def build_voting_ui(self, words_to_vote: dict, my_username: str):
-        """
-        Transform the categories area into a voting interface based on the words_to_vote structure.
-        """
+        self._my_username = my_username
         for w in self._categories_frame.winfo_children():
             w.destroy()
 
@@ -293,11 +291,11 @@ class GameScreen(BaseScreen):
                 ).pack(side="left")
 
                 if target_user != my_username:
-                    btn_yes = tk.Button(row_frame, text="Valid")
+                    btn_yes = tk.Button(row_frame, text="Valid", width=8)
                     theme.style_button(btn_yes, variant="ghost")
                     btn_yes.pack(side="left", padx=5)             
                     
-                    btn_no = tk.Button(row_frame, text="Invalid")
+                    btn_no = tk.Button(row_frame, text="Invalid", width=8)
                     theme.style_button(btn_no, variant="ghost")
                     btn_no.pack(side="left", padx=5)
                     
@@ -309,21 +307,38 @@ class GameScreen(BaseScreen):
                     )
                     self._vote_buttons[(category, target_user)] = {"yes": btn_yes, "no": btn_no}
                 else:
-                    spacer = tk.Label(row_frame, text="", bg=theme.BG_PAGE, width=10)
-                    spacer.pack(side="left", padx=4)
+                    spacer_yes = tk.Label(row_frame, text="", bg=theme.BG_PAGE, width=8)
+                    spacer_yes.pack(side="left", padx=5)
+                    
+                    spacer_no = tk.Label(row_frame, text="", bg=theme.BG_PAGE, width=8)
+                    spacer_no.pack(side="left", padx=5)
 
-                counter_btn = tk.Button(
-                    row_frame, 
-                    text=f"0/{expected_votes} voti", 
+                counters_frame = tk.Frame(row_frame, bg=theme.BG_PAGE)
+                counters_frame.pack(side="left", padx=10)
+
+                valid_btn = tk.Button(
+                    counters_frame, 
+                    text="✅ 0", 
                     cursor="hand2",
                     command=lambda c=category, t=target_user: self._show_vote_details(c, t)
                 )
-                theme.style_button(counter_btn, variant="ghost")
-                counter_btn.configure(font=(theme.HAND_FONT, 9, "bold"), fg=theme.BLUE_INK)
-                counter_btn.pack(side="left", padx=10)
-                
+                theme.style_button(valid_btn, variant="ghost")
+                valid_btn.configure(font=(theme.HAND_FONT, 10, "bold"), fg=theme.GREEN_INK)
+                valid_btn.pack(side="left", padx=2)
+
+                invalid_btn = tk.Button(
+                    counters_frame, 
+                    text="❌ 0", 
+                    cursor="hand2",
+                    command=lambda c=category, t=target_user: self._show_vote_details(c, t, is_invalid=True)
+                )
+                theme.style_button(invalid_btn, variant="ghost")
+                invalid_btn.configure(font=(theme.HAND_FONT, 10, "bold"), fg=theme.RED_INK)
+                invalid_btn.pack(side="left", padx=2)
+
                 self._vote_counters[(category, target_user)] = {
-                    "btn": counter_btn,
+                    "valid_btn": valid_btn,
+                    "invalid_btn": invalid_btn,
                     "expected": expected_votes
                 }
 
@@ -340,15 +355,20 @@ class GameScreen(BaseScreen):
         self._canvas.configure(scrollregion=self._canvas.bbox("all"))
 
     def _cast_vote(self, target_user: str, category: str, is_valid: bool, btn_yes: tk.Button, btn_no: tk.Button):
-        """Handle the logic when a user clicks "Valid" or "Invalid" for a given word. 
-        Updates button states and notifies the Controller."""
+        """Handle the logic when the user casts a vote for a specific word."""
         self._voted_items.add((category, target_user))
+        
         if is_valid:
             theme.style_button(btn_yes, variant="success")
             theme.style_button(btn_no, variant="ghost")
         else:
             theme.style_button(btn_yes, variant="ghost")
             theme.style_button(btn_no, variant="danger")
+
+        if hasattr(self, '_my_username'):
+            self.update_peer_vote(target_user, category, f"{self._my_username} (YOU)", is_valid)
+        else:
+            print("[GUI ERROR] _my_username non trovato! Hai dimenticato di aggiungerlo all'inizio di build_voting_ui?")
         if hasattr(self.manager, 'on_vote_cast') and self.manager.on_vote_cast:
             self.manager.on_vote_cast(target_user, category, is_valid)
 
@@ -364,33 +384,32 @@ class GameScreen(BaseScreen):
         for btns in self._vote_buttons.values():
             btns["yes"].configure(state="disabled")
             btns["no"].configure(state="disabled")
-        self._submit_votes_btn.configure(state="disabled", text="Voti Inviati!", bg="gray")
+        self._submit_votes_btn.configure(state="disabled", text="Vote submitted!", bg="gray")
         self.update_status("Waiting for other players to finish voting...")
         if hasattr(self.manager, 'on_submit_votes') and self.manager.on_submit_votes:
             self.manager.on_submit_votes()
 
     def update_peer_vote(self, target_user: str, category: str, voter: str, is_valid: bool):
         """
-        Update the UI based on a vote received from a peer.
+        Method to update the vote data when a vote is cast by any player (including self).
         """
         key = (category, target_user)
-        if key not in self._peer_votes_data:
+        
+        if key not in getattr(self, '_peer_votes_data', {}):
             return
 
         self._peer_votes_data[key][voter] = is_valid
-
-        if key in self._vote_counters:
+        if key in getattr(self, '_vote_counters', {}):
             data = self._vote_counters[key]
-            current_votes = len(self._peer_votes_data[key])
-            expected = data["expected"]
+            votes_dict = self._peer_votes_data[key]
             
-            btn = data["btn"]
-            btn.configure(text=f"{current_votes}/{expected} votes")
+            valid_count = sum(1 for v in votes_dict.values() if v is True)
+            invalid_count = sum(1 for v in votes_dict.values() if v is False)
             
-            if current_votes >= expected and expected > 0:
-                btn.configure(fg=theme.GREEN_INK)
+            data["valid_btn"].configure(text=f"✅ {valid_count}")
+            data["invalid_btn"].configure(text=f"❌ {invalid_count}")
 
-    def _show_vote_details(self, category: str, target_user: str):
+    def _show_vote_details(self, category: str, target_user: str, is_invalid=False):
         """Show details of votes for a specific category and target user."""
         votes = self._peer_votes_data.get((category, target_user), {})
         
@@ -402,7 +421,9 @@ class GameScreen(BaseScreen):
         invalidi = [voter for voter, is_val in votes.items() if not is_val]
 
         msg = f"Details of votes for the word of {target_user} ({category})\n\n"
-        msg += f"VALID ({len(validi)}): {', '.join(validi) if validi else 'None'}\n"
-        msg += f"INVALID ({len(invalidi)}): {', '.join(invalidi) if invalidi else 'None'}"
+        if is_invalid:
+            msg += f"INVALID ({len(invalidi)}): {', '.join(invalidi) if invalidi else 'None'}"
+        else:
+            msg += f"VALID ({len(validi)}): {', '.join(validi) if validi else 'None'}\n"
 
         messagebox.showinfo("Vote details", msg)
