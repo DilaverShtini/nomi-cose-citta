@@ -174,13 +174,19 @@ class ClientController:
             chat_text = f"{msg_obj.sender}: {msg_obj.payload.get('text', '')}"
             self.root.after(0, lambda: self.gui.append_log(chat_text))
 
-        elif t == MessageType.MSG_VOTE:
-            target   = msg_obj.payload.get("target")
-            category = msg_obj.payload.get("category")
-            is_valid = msg_obj.payload.get("valid")
-            print(f"[P2P] Vote from {msg_obj.sender}: "
-                  f"{target} → {category} = {is_valid}")
-            
+        elif msg_obj.type == MessageType.MSG_VOTE:
+            target = msg_obj.payload["target"]
+            category = msg_obj.payload["category"]
+            is_valid = msg_obj.payload["valid"]
+            voter = msg_obj.sender
+            print(f"[P2P] Vote received from {voter}: {target} -> {category} is {is_valid}")
+            self.root.after(0, lambda: self.gui.update_peer_vote(
+                target_user=target, 
+                category=category, 
+                voter=voter, 
+                is_valid=is_valid
+            ))
+
         else:
             self.root.after(0, lambda: self.gui.append_log(
                 f"[{msg_obj.sender}] {msg_obj.type}"))

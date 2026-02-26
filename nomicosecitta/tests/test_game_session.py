@@ -1,3 +1,4 @@
+import time
 import unittest
 from unittest.mock import AsyncMock, MagicMock
 import sys
@@ -64,3 +65,100 @@ class TestGameSession(unittest.IsolatedAsyncioTestCase):
         self.mock_server.broadcast.assert_called_once()
         broadcast_msg = self.mock_server.broadcast.call_args[0][0]
         self.assertEqual(broadcast_msg.type.name, "EVT_VOTING_START")
+
+    async def test_start_game_fail_not_enough_players(self):
+        self.mock_server.get_active_count.return_value = 0
+        settings = {"mode": "classic", "round_time": 60}
+        
+        success, msg = await self.session.start_game("AdminUser", settings)
+        
+        self.assertFalse(success)
+        self.assertEqual(msg, "Not enough players")
+        self.assertEqual(self.session.state, GameState.LOBBY)
+
+    async def test_start_game_fail_already_in_progress(self):
+        self.session.state = GameState.WAITING_INPUT
+        settings = {"mode": "classic", "round_time": 60}
+        
+        success, msg = await self.session.start_game("AdminUser", settings)
+        
+        self.assertFalse(success)
+        self.assertEqual(msg, "Game already in progress")
+
+    async def test_receive_answers_rejected_outside_time_limit(self):
+        self.session.state = GameState.VOTING
+        
+        await self.session.receive_answers("AdminUser", {"Nomi": "Mario"})
+        self.assertEqual(len(self.session.received_answers), 0)
+
+    def test_process_initial_validation(self):
+        self.session.current_round = MagicMock()
+        self.session.current_round.letter = "R"
+        self.session.current_round.categories = ["Città"]
+        
+        self.session.received_answers = {
+            "P1": {"Città": "Roma"},
+            "P2": {"Città": "Milano"},
+            "P3": {"Città": ""}
+        }
+        
+        self.session._process_initial_validation()
+        
+        self.assertEqual(self.session.round_data["Città"]["P1"]["status"], "PENDING_VOTE")
+        self.assertIn("P1", self.session.words_to_vote["Città"])
+        self.assertEqual(self.session.round_data["Città"]["P2"]["status"], "INVALID")
+        self.assertEqual(self.session.round_data["Città"]["P3"]["status"], "INVALID")
+        self.assertNotIn("P2", self.session.words_to_vote["Città"])
+
+    async def test_end_round(self):
+        self.session.state = GameState.WAITING_INPUT
+        self.session.current_round = MagicMock()
+        self.session.current_round.letter = "A"
+        self.session.current_round.categories = ["Nomi"]
+        self.session.received_answers = {"P1": {"Nomi": "Anna"}}
+        
+        await self.session._end_round()
+        
+        self.assertEqual(self.session.state, GameState.VOTING)
+        self.assertEqual(self.mock_server.broadcast.call_count, 2)
+        end_call = self.mock_server.broadcast.call_args_list[0][0][0]
+        vote_call = self.mock_server.broadcast.call_args_list[1][0][0]
+        
+        self.assertEqual(end_call.type.name, "EVT_ROUND_END")
+        self.assertEqual(vote_call.type.name, "EVT_VOTING_START")
+
+    async def test_handle_player_disconnection_triggers_voting(self):
+        self.session.state = GameState.WAITING_INPUT
+        self.mock_server.get_active_count.return_value = 2 
+        
+        self.session.current_round = MagicMock()
+        self.session.current_round.letter = "A"
+        self.session.current_round.categories = ["Nomi"]
+    
+        self.session._timer_task = MagicMock() 
+        self.session._timer_task.done.return_value = False
+        self.session.received_answers = {
+            "P1": {"Nomi": "Anna"},
+            "P2": {"Nomi": "Alberto"}
+        }
+        
+        await self.session.handle_player_disconnection("P3")
+        self.assertEqual(self.session.state, GameState.VOTING)
+        self.session._timer_task.cancel.assert_called_once()
+
+    async def test_sync_reconnecting_client(self):
+        self.session.state = GameState.VOTING
+        self.session.current_round = MagicMock()
+        self.session.current_round.letter = "A"
+        self.session.current_round.categories = ["Nomi"]
+        self.session.current_round_number = 1
+        self.session.round_time = 60
+        self.session.round_start_time = time.time() - 20
+        self.session.words_to_vote = {"Nomi": {"P1": "Anna"}}
+        
+        mock_client = AsyncMock()
+        mock_client.username = "P2"
+        
+        await self.session.sync_reconnecting_client(mock_client)
+    
+        self.assertEqual(mock_client.send.call_count, 3)

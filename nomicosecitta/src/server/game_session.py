@@ -1,4 +1,5 @@
 import asyncio
+import time
 from src.common.constants import (
     GAME_MODE_CLASSIC, GAME_MODE_CLASSIC_PLUS,
     TARGET_SCORE, VOTING_DURATION, SCORE_DISPLAY_DELAY,
@@ -16,7 +17,6 @@ class GameSession:
     def __init__(self, server):
         self.server = server
         self.state = GameState.LOBBY
-
         # Round state (reset each round)
         self.current_round: RoundManager | None = None
         self.received_answers: dict[str, dict] = {}
@@ -348,22 +348,30 @@ class GameSession:
 
     async def sync_reconnecting_client(self, client_handler):
         """Send current state to a reconnecting client."""
-        await client_handler.send(Message(
+        peermap_msg = Message(
             type=MessageType.EVT_PEER_MAP,
             sender="SERVER",
             payload={"peermap": self.server.get_peer_map()}
-        ).to_bytes())
+        )
 
-        await client_handler.send(Message(
+        await self.server.broadcast(peermap_msg)
+        
+        time_passed = time.time() - self.round_start_time
+        time_left = int(self.round_time - time_passed)
+        if time_left < 0:
+            time_left = 0
+
+        sync_msg = Message(
             type=MessageType.EVT_ROUND_START,
             sender="SERVER",
             payload={
                 "letter": self.current_round.letter,
                 "categories": self.current_round.categories,
-                "duration": 0,
-                "round_number": self.current_round_number,
+                "duration": time_left,
+                "round_number": self.current_round_number
             }
-        ).to_bytes())
+        )
+        await client_handler.send(sync_msg.to_bytes())
 
         if self.state == GameState.VOTING:
             await client_handler.send(Message(

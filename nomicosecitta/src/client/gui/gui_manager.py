@@ -149,6 +149,10 @@ class GUIManager:
     def start_round(self, letter: str, categories: list, round_number: int, duration: int):
         self.game.start_round(letter, categories, round_number, duration)
 
+    def update_peer_vote(self, target_user: str, category: str, voter: str, is_valid: bool):
+        if self._current_screen == Screen.GAME:
+            self.game.update_peer_vote(target_user, category, voter, is_valid)
+
     def end_round(self):
         self.game.end_round()
 

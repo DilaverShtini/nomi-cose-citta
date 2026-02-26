@@ -41,18 +41,16 @@ class TestLoginScreen(TkinterGUITestCase):
 
     def test_login_flow_success(self):
         self.enter_text(self.screen._username_entry, "Chiara")
-        self.enter_text(self.screen._ip_entry, "192.168.1.50")
 
         self.screen._handle_connect()
         self.root.update()
 
-        self.mock_manager.on_connect.assert_called_once_with("192.168.1.50", "Chiara")
+        self.mock_manager.on_connect.assert_called_once_with("127.0.0.1", "Chiara")
 
     @patch('src.client.gui.screens.login.messagebox.showerror')
     def test_login_flow_missing_data(self, mock_showerror):
 
         self.enter_text(self.screen._username_entry, "")
-        self.enter_text(self.screen._ip_entry, "127.0.0.1")
 
         self.screen._handle_connect()
         self.root.update()
