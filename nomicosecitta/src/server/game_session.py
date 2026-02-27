@@ -88,9 +88,9 @@ class GameSession:
             self.current_settings["selected_categories"] = aggregated
 
         if mode == GAME_MODE_CLASSIC:
-            final_categories = ["Nomi", "Cose", "Città"]
+            final_categories = ["Name", "Things", "Cities"]
         elif mode == GAME_MODE_CLASSIC_PLUS:
-            final_categories = ["Nomi", "Cose", "Città"] + aggregated
+            final_categories = ["Name", "Things", "Cities"] + aggregated
         elif mode == GAME_MODE_FREE:
             final_categories = aggregated
 
