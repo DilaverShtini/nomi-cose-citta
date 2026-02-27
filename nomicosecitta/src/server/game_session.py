@@ -405,6 +405,7 @@ class GameSession:
         self.received_answers.clear()
         self.round_data.clear()
         self.words_to_vote.clear()
+        self.scores.clear()
         self.current_round_number = 0
 
         if self._timer_task and not self._timer_task.done():
