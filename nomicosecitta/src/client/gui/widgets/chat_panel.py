@@ -24,7 +24,7 @@ class ChatPanel:
                  anchor="w").pack(fill="x", pady=(0, 6))
 
         self._log_area = scrolledtext.ScrolledText(
-            self.frame, state="disabled", height=12, width=25)
+            self.frame, state="disabled", height=12, width=10)
         theme.style_scrolled_text(self._log_area)
         self._log_area.configure(
             highlightthickness=1, highlightbackground=theme.LINE_COLOR)

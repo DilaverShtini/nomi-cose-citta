@@ -32,7 +32,7 @@ class GameScreen(BaseScreen):
 
         self._middle_frame = tk.Frame(self.frame, bg=theme.BG_PAGE)
         self._middle_frame.pack(fill="both", expand=True)
-        self._middle_frame.columnconfigure(0, weight=3)
+        self._middle_frame.columnconfigure(0, weight=5)
         self._middle_frame.columnconfigure(1, weight=1)
         self._middle_frame.rowconfigure(0, weight=1)
 
@@ -173,9 +173,16 @@ class GameScreen(BaseScreen):
                                  troughcolor=theme.BG_SURFACE,
                                  relief="flat", bd=0)
 
+        h_scrollbar = tk.Scrollbar(container, orient="horizontal",
+                                   command=self._canvas.xview,
+                                   bg=theme.BG_SURFACE,
+                                   troughcolor=theme.BG_SURFACE,
+                                   relief="flat", bd=0)
+
         self._categories_frame = tk.Frame(self._canvas, bg=theme.BG_PAGE)
 
-        self._canvas.configure(yscrollcommand=scrollbar.set)
+        self._canvas.configure(yscrollcommand=scrollbar.set, xscrollcommand=h_scrollbar.set)
+        h_scrollbar.pack(side="bottom", fill="x")
         scrollbar.pack(side="right", fill="y")
         self._canvas.pack(side="left", fill="both", expand=True)
 
@@ -190,9 +197,13 @@ class GameScreen(BaseScreen):
 
     def _on_frame_configure(self, event):
         self._canvas.configure(scrollregion=self._canvas.bbox("all"))
+        req_width = self._categories_frame.winfo_reqwidth()
+        canvas_width = self._canvas.winfo_width()
+        self._canvas.itemconfig(self._canvas_window, width=max(canvas_width, req_width))
 
     def _on_canvas_configure(self, event):
-        self._canvas.itemconfig(self._canvas_window, width=event.width)
+        req_width = self._categories_frame.winfo_reqwidth()
+        self._canvas.itemconfig(self._canvas_window, width=max(event.width, req_width))
 
     # Chat panel
 
