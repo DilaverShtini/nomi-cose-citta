@@ -15,6 +15,7 @@ from src.common.constants import DEFAULT_SERVER_PORT, GAME_MODE_CLASSIC
 from src.client.network_handler import NetworkHandler
 from src.client.gui import GUIManager
 
+# Constants for lobby actions
 _ACTION_SETTINGS   = "settings"
 _ACTION_CATEGORIES = "categories"
 
@@ -174,17 +175,17 @@ class ClientController:
             chat_text = f"{msg_obj.sender}: {msg_obj.payload.get('text', '')}"
             self.root.after(0, lambda: self.gui.append_log(chat_text))
 
-        elif msg_obj.type == MessageType.MSG_VOTE:
-            target = msg_obj.payload["target"]
+        elif t == MessageType.MSG_VOTE:
+            target   = msg_obj.payload["target"]
             category = msg_obj.payload["category"]
             is_valid = msg_obj.payload["valid"]
-            voter = msg_obj.sender
+            voter    = msg_obj.sender
             print(f"[P2P] Vote received from {voter}: {target} -> {category} is {is_valid}")
             self.root.after(0, lambda: self.gui.update_peer_vote(
-                target_user=target, 
-                category=category, 
-                voter=voter, 
-                is_valid=is_valid
+                target_user=target,
+                category=category,
+                voter=voter,
+                is_valid=is_valid,
             ))
 
         else:
@@ -194,18 +195,23 @@ class ClientController:
     # Score update & game over
 
     def _handle_score_update(self, payload: dict):
-        """Display round results to the user."""
-        round_scores = payload.get("round_scores", {})
+        """Update the leaderboard panel and post a brief recap in chat."""
+        round_scores  = payload.get("round_scores", {})
         global_scores = payload.get("scores", {})
-        round_number = payload.get("round_number", "?")
+        round_number  = payload.get("round_number", "?")
 
-        lines = [f"── Round {round_number} results ──"]
-        for user, pts in sorted(global_scores.items(),
-                                key=lambda kv: kv[1], reverse=True):
-            earned = round_scores.get(user, 0)
-            lines.append(f"  {user}: +{earned} pts  (total: {pts})")
-        lines.append("────────────────────────")
-        summary = "\n".join(lines)
+        self.root.after(0, lambda: self.gui.update_scoreboard(
+            global_scores, round_scores))
+
+        winner_this_round = max(round_scores, key=round_scores.get) if round_scores else None
+        if winner_this_round:
+            top_pts = round_scores[winner_this_round]
+            summary = (
+                f"── Round {round_number} done · "
+                f"best: {winner_this_round} +{top_pts} pts ──"
+            )
+        else:
+            summary = f"── Round {round_number} done ──"
 
         self.root.after(0, lambda: self.gui.append_log(summary))
         self.root.after(0, lambda: self.gui.update_game_status(
@@ -214,9 +220,11 @@ class ClientController:
         print(f"[CONTROLLER] Score update — global: {global_scores}")
 
     def _handle_game_over(self, payload: dict):
-        """Show game over dialog."""
+        """Show game over dialog and reset to lobby."""
         winner = payload.get("winner", "Unknown")
         scores = payload.get("scores", {})
+
+        self.root.after(0, lambda: self.gui.update_scoreboard(scores))
 
         lines = ["GAME OVER", f"Winner: {winner}", ""]
         for user, pts in sorted(scores.items(), key=lambda kv: kv[1], reverse=True):

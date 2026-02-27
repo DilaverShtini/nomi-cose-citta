@@ -17,9 +17,6 @@ class Screen(Enum):
     LOGIN = auto()
     LOBBY = auto()
     GAME = auto()
-    # Future screens:
-    # VOTING = auto()
-    # RESULTS = auto()
 
 
 class GUIManager:
@@ -38,7 +35,6 @@ class GUIManager:
         self.on_vote_cast: Optional[Callable[[str, str, bool], None]] = None
 
         self.on_lobby_settings_changed: Optional[Callable[[dict], None]] = None
-
         self.on_category_vote_changed: Optional[Callable[[list], None]] = None
 
         self._screens: Dict[Screen, BaseScreen] = {}
@@ -81,7 +77,7 @@ class GUIManager:
 
     def show_game(self):
         self.navigate_to(Screen.GAME)
-    
+
     def show_voting_phase(self, words_to_vote: dict, my_username: str):
         self.navigate_to(Screen.GAME)
         self.game.build_voting_ui(words_to_vote, my_username)
@@ -121,7 +117,7 @@ class GUIManager:
         self.lobby.update_lobby_settings(mode, num_extra_categories, round_time)
 
     # Game delegations
-    
+
     def update_game_letter(self, letter: str):
         self.game.update_letter(letter)
 
@@ -155,6 +151,9 @@ class GUIManager:
 
     def end_round(self):
         self.game.end_round()
+
+    def update_scoreboard(self, scores: dict, round_scores: dict = None):
+        self.game.update_scoreboard(scores, round_scores)
 
     @property
     def players_list(self):
