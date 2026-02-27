@@ -1,7 +1,7 @@
 import asyncio
 import time
 from src.common.constants import (
-    GAME_MODE_CLASSIC, GAME_MODE_CLASSIC_PLUS,
+    GAME_MODE_CLASSIC, GAME_MODE_CLASSIC_PLUS, GAME_MODE_FREE,
     TARGET_SCORE, VOTING_DURATION, SCORE_DISPLAY_DELAY,
     POINTS_UNIQUE_CATEGORY, POINTS_UNIQUE_WORD, POINTS_SHARED_WORD, POINTS_INVALID,
 )
@@ -80,15 +80,19 @@ class GameSession:
         self._reset_round_state()
 
         mode = settings.get("mode", GAME_MODE_CLASSIC)
-        num_extra = int(settings.get("num_extra_categories", 2))
-        aggregated = self.server.get_aggregated_categories(num_extra)
+        num_extra = int(settings.get("num_extra_categories", 1))
+        
+        aggregated = settings.get("selected_categories")
+        if not aggregated:
+            aggregated = self.server.get_aggregated_categories(num_extra)
+            self.current_settings["selected_categories"] = aggregated
 
         if mode == GAME_MODE_CLASSIC:
             final_categories = ["Nomi", "Cose", "Città"]
         elif mode == GAME_MODE_CLASSIC_PLUS:
             final_categories = ["Nomi", "Cose", "Città"] + aggregated
-        else:
-            final_categories = aggregated if aggregated else ["Nomi", "Cose", "Città"]
+        elif mode == GAME_MODE_FREE:
+            final_categories = aggregated
 
         settings_for_round = dict(settings)
         settings_for_round["selected_categories"] = (
