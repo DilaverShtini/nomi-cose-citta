@@ -47,6 +47,18 @@ class GameSession:
         if self.server.get_active_count() < 1:
             return False, "Not enough players"
 
+        mode = settings.get("mode", GAME_MODE_CLASSIC)
+        num_extra = int(settings.get("num_extra_categories", 2))
+
+        if mode != GAME_MODE_CLASSIC:
+            aggregated = self.server.get_aggregated_categories(num_extra)
+            if not aggregated:
+                return (
+                    False,
+                    "At least one extra category must be selected by the players "
+                    "before starting in this game mode.",
+                )
+
         peermap_msg = Message(
             type=MessageType.EVT_PEER_MAP,
             sender="SERVER",
