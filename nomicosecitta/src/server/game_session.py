@@ -107,6 +107,7 @@ class GameSession:
         self.old_letters.add(self.current_round.letter)
         self.round_time = int(settings.get("round_time", 60))
         self.current_round_number += 1
+        self.round_start_time = time.time()
 
         print(
             f"[GAME] Round {self.current_round_number}: "
