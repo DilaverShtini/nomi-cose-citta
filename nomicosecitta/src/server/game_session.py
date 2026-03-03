@@ -2,8 +2,10 @@ import asyncio
 import time
 from src.common.constants import (
     GAME_MODE_CLASSIC, GAME_MODE_CLASSIC_PLUS, GAME_MODE_FREE,
-    TARGET_SCORE, VOTING_DURATION, SCORE_DISPLAY_DELAY,
+    TARGET_SCORE, SCORE_DISPLAY_DELAY,
     POINTS_UNIQUE_CATEGORY, POINTS_UNIQUE_WORD, POINTS_SHARED_WORD, POINTS_INVALID,
+    VOTING_SMALL_DURATION, VOTING_MEDIUM_DURATION, 
+    VOTING_LONG_DURATION, VOTING_LONG_LONG_DURATION
 )
 from src.common.message import Message, MessageType, GameState
 from src.server.round_manager import RoundManager
@@ -167,16 +169,29 @@ class GameSession:
 
         print(f"[GAME] Initial validation done. words_to_vote={self.words_to_vote}")
 
+    def _get_dynamic_voting_duration(self) -> int:
+        num_categories = len(self.current_round.categories)
+
+        if num_categories <= 3:
+            return VOTING_SMALL_DURATION
+        elif num_categories <= 5:
+            return VOTING_MEDIUM_DURATION
+        elif num_categories <= 7:
+            return VOTING_LONG_DURATION
+        else:
+            return VOTING_LONG_LONG_DURATION
+
     async def _start_voting_phase(self):
         self.state = GameState.VOTING
         self.voting_start_time = time.time()
+        self.current_voting_duration = self._get_dynamic_voting_duration()
 
         await self.server.broadcast(Message(
             type=MessageType.EVT_VOTING_START,
             sender="SERVER",
             payload={
                 "words_to_vote": self.words_to_vote,
-                "duration": VOTING_DURATION
+                "duration": self.current_voting_duration
             }
         ))
 
@@ -186,9 +201,9 @@ class GameSession:
 
     async def _voting_timeout(self):
         try:
-            await asyncio.sleep(VOTING_DURATION)
+            await asyncio.sleep(self.current_voting_duration)
             if self.state == GameState.VOTING:
-                print("[GAME] Voting timer expired — forcing finalization.")
+                print("[GAME] Voting timer expired.")
                 await self._finalize_round()
         except asyncio.CancelledError:
             pass
@@ -400,9 +415,9 @@ class GameSession:
 
         if self.state == GameState.VOTING:
             time_passed = time.time() - getattr(self, 'voting_start_time', time.time())
-            time_left = int(VOTING_DURATION - time_passed)
+            total_duration = getattr(self, 'current_voting_duration', VOTING_SMALL_DURATION)
+            time_left = int(total_duration - time_passed)
             if time_left < 0: time_left = 0
-            
             await client_handler.send(Message(
                 type=MessageType.EVT_VOTING_START,
                 sender="SERVER",

@@ -477,7 +477,7 @@ class GameScreen(BaseScreen):
                 self._voting_timer_job = self.frame.after(1000, self._run_voting_timer)
             else:
                 self._timer.set_expired()
-                self.update_status("Tempo scaduto! In attesa dei risultati...")
+                self.update_status("Time's up! Submitting votes...")
                 
                 if hasattr(self, '_submit_votes_btn') and self._submit_votes_btn['state'] != "disabled":
                     self._on_submit_votes_click()

@@ -73,7 +73,10 @@ POINTS_INVALID = 0
 TARGET_SCORE = 100
 
 #Voting phase duration (seconds) - server waits this long before forcing finalization
-VOTING_DURATION = 60
+VOTING_SMALL_DURATION = 120
+VOTING_MEDIUM_DURATION = 180
+VOTING_LONG_DURATION = 240
+VOTING_LONG_LONG_DURATION = 300
 
 # Seconds to show score screen before starting the next round automatically
 SCORE_DISPLAY_DELAY = 8

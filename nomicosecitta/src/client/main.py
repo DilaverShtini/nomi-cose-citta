@@ -156,7 +156,7 @@ class ClientController:
         elif t == MessageType.EVT_VOTING_START:
             words_to_vote = msg_obj.payload.get("words_to_vote", {})
             self.my_votes = {cat: {} for cat in words_to_vote}
-            duration = msg_obj.payload.get("duration")
+            duration = msg_obj.payload.get("duration", 180)
             print(f"[CONTROLLER] Voting phase — words: {words_to_vote}")
             self.root.after(0, lambda: self.gui.show_voting_phase(words_to_vote, self.username, duration))
 
