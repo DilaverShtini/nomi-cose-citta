@@ -169,11 +169,15 @@ class GameSession:
 
     async def _start_voting_phase(self):
         self.state = GameState.VOTING
+        self.voting_start_time = time.time()
 
         await self.server.broadcast(Message(
             type=MessageType.EVT_VOTING_START,
             sender="SERVER",
-            payload={"words_to_vote": self.words_to_vote}
+            payload={
+                "words_to_vote": self.words_to_vote,
+                "duration": VOTING_DURATION
+            }
         ))
 
         self._voting_timer_task = asyncio.create_task(
@@ -395,10 +399,17 @@ class GameSession:
         await client_handler.send(sync_msg.to_bytes())
 
         if self.state == GameState.VOTING:
+            time_passed = time.time() - getattr(self, 'voting_start_time', time.time())
+            time_left = int(VOTING_DURATION - time_passed)
+            if time_left < 0: time_left = 0
+            
             await client_handler.send(Message(
                 type=MessageType.EVT_VOTING_START,
                 sender="SERVER",
-                payload={"words_to_vote": self.words_to_vote}
+                payload={
+                    "words_to_vote": self.words_to_vote,
+                    "duration": time_left
+                }
             ).to_bytes())
 
     def reset(self):

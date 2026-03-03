@@ -78,9 +78,9 @@ class GUIManager:
     def show_game(self):
         self.navigate_to(Screen.GAME)
 
-    def show_voting_phase(self, words_to_vote: dict, my_username: str):
+    def show_voting_phase(self, words_to_vote: dict, my_username: str, duration: int):
         self.navigate_to(Screen.GAME)
-        self.game.build_voting_ui(words_to_vote, my_username)
+        self.game.build_voting_ui(words_to_vote, my_username, duration)
 
     # Screen properties
 

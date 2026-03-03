@@ -362,7 +362,7 @@ class GameScreen(BaseScreen):
 
     # Voting UI
 
-    def build_voting_ui(self, words_to_vote: dict, my_username: str):
+    def build_voting_ui(self, words_to_vote: dict, my_username: str, duration: int = 0):
         self._my_username = my_username
         for w in self._categories_frame.winfo_children():
             w.destroy()
@@ -464,6 +464,24 @@ class GameScreen(BaseScreen):
         self.frame.update_idletasks()
         self._canvas.configure(scrollregion=self._canvas.bbox("all"))
 
+        if duration > 0:
+            self._timer.reset()
+            self._voting_duration = duration
+            self._run_voting_timer()
+
+    def _run_voting_timer(self):
+        if (hasattr(self, '_voting_duration') and self._voting_duration >= 0 and self.is_active):
+            self.update_timer(self._voting_duration)
+            if self._voting_duration > 0:
+                self._voting_duration -= 1
+                self._voting_timer_job = self.frame.after(1000, self._run_voting_timer)
+            else:
+                self._timer.set_expired()
+                self.update_status("Tempo scaduto! In attesa dei risultati...")
+                
+                if hasattr(self, '_submit_votes_btn') and self._submit_votes_btn['state'] != "disabled":
+                    self._on_submit_votes_click()
+
     def _cast_vote(self, target_user: str, category: str, is_valid: bool,
                    btn_yes: tk.Button, btn_no: tk.Button):
         self._voted_items.add((category, target_user))
@@ -490,6 +508,8 @@ class GameScreen(BaseScreen):
         theme.style_button(self._submit_votes_btn, variant="ghost")
         self._submit_votes_btn.configure(
             state="disabled", text="Votes submitted ✓")
+        if hasattr(self, '_voting_timer_job'):
+            self.frame.after_cancel(self._voting_timer_job)
         if hasattr(self, '_submit_hint'):
             self._submit_hint.configure(text="")
         self.update_status("Waiting for other players to finish voting...")

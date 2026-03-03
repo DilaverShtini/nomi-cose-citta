@@ -156,9 +156,9 @@ class ClientController:
         elif t == MessageType.EVT_VOTING_START:
             words_to_vote = msg_obj.payload.get("words_to_vote", {})
             self.my_votes = {cat: {} for cat in words_to_vote}
+            duration = msg_obj.payload.get("duration")
             print(f"[CONTROLLER] Voting phase — words: {words_to_vote}")
-            self.root.after(0, lambda: self.gui.show_voting_phase(
-                words_to_vote, self.username))
+            self.root.after(0, lambda: self.gui.show_voting_phase(words_to_vote, self.username, duration))
 
         elif t == MessageType.EVT_SCORE_UPDATE:
             self._handle_score_update(msg_obj.payload)
