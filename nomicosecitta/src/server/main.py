@@ -38,7 +38,6 @@ def parse_args():
     )
     return parser.parse_args()
 
-
 async def run_server(host, port):
     """
     Start the game server.
@@ -55,7 +54,6 @@ async def run_server(host, port):
         print("\n[SHUTDOWN] Server stopping by user request...")
     finally:
         await server.stop()
-
 
 async def run_with_replication(host, port, role):
     """

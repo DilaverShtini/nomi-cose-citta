@@ -79,23 +79,36 @@ class GameServer:
         """ 
         Remove a client from the active list.
         """
+        was_admin = (handler.username is not None and
+                     handler.username == self.admin_username)
+
         if handler in self.clients:
             self.clients.remove(handler)
             print(f"[MANAGEMENT] Client removed. Remaining: {len(self.clients)}")
             if handler.username and handler.username in self.category_votes:
                 del self.category_votes[handler.username]
 
-    async def broadcast(self, msg: Message, exclude = None):
+        if was_admin:
+            self._elect_new_admin()
+
+    def get_admin(self):
+        return self.admin_username
+
+    def set_admin(self, username):
+        if self.admin_username is None:
+            self.admin_username = username
+
+    def _elect_new_admin(self):
         """
-        Send a message to all connected clients.
+        Elect a new admin using FIFO policy
         """
-        msg_bytes = msg.to_bytes()
-        tasks = []
         for client in self.clients:
-            if client != exclude:
-                tasks.append(asyncio.create_task(client.send(msg_bytes)))
-        if tasks:
-            await asyncio.gather(*tasks, return_exceptions=True)
+            if client.username:
+                self.admin_username = client.username
+                print(f"[ADMIN] New admin elected: {self.admin_username}")
+                return
+        self.admin_username = None
+        print("[ADMIN] No players remaining, admin slot is vacant.")
 
     def get_admin(self):
         return self.admin_username
@@ -125,6 +138,18 @@ class GameServer:
             for client in self.clients
             if client.username and client.p2p_address
         }
+
+    async def broadcast(self, msg: Message, exclude = None):
+        """
+        Send a message to all connected clients.
+        """
+        msg_bytes = msg.to_bytes()
+        tasks = []
+        for client in self.clients:
+            if client != exclude:
+                tasks.append(asyncio.create_task(client.send(msg_bytes)))
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
 
     async def stop(self):
         """

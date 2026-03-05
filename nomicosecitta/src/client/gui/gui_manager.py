@@ -17,9 +17,6 @@ class Screen(Enum):
     LOGIN = auto()
     LOBBY = auto()
     GAME = auto()
-    # Future screens:
-    # VOTING = auto()
-    # RESULTS = auto()
 
 
 class GUIManager:
@@ -35,9 +32,9 @@ class GUIManager:
         self.on_send_message: Optional[Callable[[str], None]] = None
         self.on_start_game: Optional[Callable[[dict], None]] = None
         self.on_submit_answers: Optional[Callable[[dict], None]] = None
+        self.on_vote_cast: Optional[Callable[[str, str, bool], None]] = None
 
         self.on_lobby_settings_changed: Optional[Callable[[dict], None]] = None
-
         self.on_category_vote_changed: Optional[Callable[[list], None]] = None
 
         self._screens: Dict[Screen, BaseScreen] = {}
@@ -81,6 +78,10 @@ class GUIManager:
     def show_game(self):
         self.navigate_to(Screen.GAME)
 
+    def show_voting_phase(self, words_to_vote: dict, my_username: str, duration: int):
+        self.navigate_to(Screen.GAME)
+        self.game.build_voting_ui(words_to_vote, my_username, duration)
+
     # Screen properties
 
     @property
@@ -104,7 +105,7 @@ class GUIManager:
         self.lobby.update_player_list(players, admin_username)
 
     def append_log(self, text: str):
-        self.lobby.append_log(text)
+        self.game.append_log(text)
 
     def get_selected_extra_categories(self) -> list:
         return self.lobby.get_selected_categories()
@@ -112,11 +113,11 @@ class GUIManager:
     def get_game_settings(self) -> dict:
         return self.lobby.get_settings()
 
-    def update_lobby_settings(self, mode: str, num_extra_categories: int):
-        self.lobby.update_lobby_settings(mode, num_extra_categories)
+    def update_lobby_settings(self, mode: str, num_extra_categories: int, round_time: int = None):
+        self.lobby.update_lobby_settings(mode, num_extra_categories, round_time)
 
     # Game delegations
-    
+
     def update_game_letter(self, letter: str):
         self.game.update_letter(letter)
 
@@ -144,8 +145,15 @@ class GUIManager:
     def start_round(self, letter: str, categories: list, round_number: int, duration: int):
         self.game.start_round(letter, categories, round_number, duration)
 
+    def update_peer_vote(self, target_user: str, category: str, voter: str, is_valid: bool):
+        if self._current_screen == Screen.GAME:
+            self.game.update_peer_vote(target_user, category, voter, is_valid)
+
     def end_round(self):
         self.game.end_round()
+
+    def update_scoreboard(self, scores: dict, round_scores: dict = None):
+        self.game.update_scoreboard(scores, round_scores)
 
     @property
     def players_list(self):
