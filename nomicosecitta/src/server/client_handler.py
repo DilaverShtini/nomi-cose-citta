@@ -82,6 +82,7 @@ class ClientHandler:
             await self.send(err_msg.to_bytes())
             return
         
+        
         self.username = username
         self.server.set_admin(username)
 
