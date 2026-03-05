@@ -371,7 +371,7 @@ class GameScreen(BaseScreen):
             w.destroy()
 
         self.update_status(
-            "Voting phase: vote at least one answer, then click Submit.")
+            "Voting phase: vote and click Ready.")
         self._vote_buttons    = {}
         self._voted_items     = set()
         self._peer_votes_data = {}
