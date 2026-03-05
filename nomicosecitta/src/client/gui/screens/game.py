@@ -159,6 +159,9 @@ class GameScreen(BaseScreen):
                 tk.Label(bot, text=f"  +{delta}", font=_FONT_LB_DELTA,
                          bg=theme.BG_SURFACE, fg=theme.GREEN_INK).pack(side="left")
 
+        self.update_status("Scores updated! Next round starting shortly...")
+        self.frame.update_idletasks()
+
     # Categories area
 
     def _setup_categories_area(self):
@@ -446,19 +449,18 @@ class GameScreen(BaseScreen):
         sf.pack(fill="x", pady=(30, 10))
 
         self._submit_votes_btn = tk.Button(
-            sf, text="Submit votes",
+            sf, text="Ready",
             command=self._on_submit_votes_click,
-            state="disabled")
+            state="normal"
+        )
         theme.style_button(self._submit_votes_btn, variant="primary")
-        self._submit_votes_btn.configure(
-            state="disabled", bg=theme.INK_LIGHT, cursor="arrow")
         self._submit_votes_btn.pack()
 
         self._submit_hint = tk.Label(
             sf,
-            text="Vote at least one answer to unlock submit.",
+            text="Review the answers and click when ready.",
             font=(theme.HAND_FONT, 9, "italic"),
-            bg=theme.BG_PAGE, fg=theme.ORANGE_INK)
+            bg=theme.BG_PAGE, fg=theme.INK_LIGHT)
         self._submit_hint.pack(pady=(4, 0))
 
         self.frame.update_idletasks()
@@ -489,12 +491,6 @@ class GameScreen(BaseScreen):
         theme.style_button(btn_yes, variant="success" if is_valid else "ghost")
         theme.style_button(btn_no, variant="ghost" if is_valid else "danger")
 
-        if len(self._voted_items) >= 1:
-            theme.style_button(self._submit_votes_btn, variant="primary")
-            self._submit_votes_btn.configure(state="normal")
-            if hasattr(self, '_submit_hint'):
-                self._submit_hint.configure(text="")
-
         if hasattr(self, '_my_username'):
             self.update_peer_vote(target_user, category,
                                   f"{self._my_username} (YOU)", is_valid)
@@ -507,7 +503,7 @@ class GameScreen(BaseScreen):
             btns["no"].configure(state="disabled")
         theme.style_button(self._submit_votes_btn, variant="ghost")
         self._submit_votes_btn.configure(
-            state="disabled", text="Votes submitted ✓")
+            state="disabled", text="Ready for the next round!")
         if hasattr(self, '_voting_timer_job'):
             self.frame.after_cancel(self._voting_timer_job)
         if hasattr(self, '_submit_hint'):

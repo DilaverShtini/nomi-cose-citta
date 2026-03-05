@@ -79,4 +79,4 @@ VOTING_LONG_DURATION = 240
 VOTING_LONG_LONG_DURATION = 300
 
 # Seconds to show score screen before starting the next round automatically
-SCORE_DISPLAY_DELAY = 8
+SCORE_DISPLAY_DELAY = 4
