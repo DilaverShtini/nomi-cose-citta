@@ -39,6 +39,13 @@ class ClientHandler:
 
                     if msg_obj.type == MessageType.CMD_JOIN:
                         await self._handle_join(msg_obj.payload)
+                    elif msg_obj.type == MessageType.CMD_START_GAME:
+                        await self._handle_start_game(msg_obj.payload)
+                    elif msg_obj.type == MessageType.CMD_SUBMIT:
+                        words = msg_obj.payload.get("words", {})
+                        await self.server.session.receive_answers(self.username, words)
+                    elif msg_obj.type == MessageType.CMD_LOBBY_ACTION:
+                        await self._handle_lobby_action(msg_obj.payload)
 
                     elif msg_obj.type == MessageType.CMD_START_GAME:
                         await self._handle_start_game(msg_obj.payload)
@@ -84,7 +91,7 @@ class ClientHandler:
             )
             await self.send(err_msg.to_bytes())
             return
-
+        
         self.username = username
         self.server.set_admin(username)
 

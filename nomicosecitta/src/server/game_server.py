@@ -110,6 +110,13 @@ class GameServer:
         self.admin_username = None
         print("[ADMIN] No players remaining, admin slot is vacant.")
 
+    def get_admin(self):
+        return self.admin_username
+
+    def set_admin(self, username):
+        if self.admin_username is None:
+            self.admin_username = username
+
     def get_client_by_username(self, username):
         for client in self.clients:
             if client.username == username:
