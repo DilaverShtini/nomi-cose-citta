@@ -131,6 +131,7 @@ class TestGameSession(unittest.IsolatedAsyncioTestCase):
         self.session.state = GameState.WAITING_INPUT
         self.mock_server.get_active_count.return_value = 2 
         
+        self.mock_server.is_shutting_down = False 
         self.session.current_round = MagicMock()
         self.session.current_round.letter = "A"
         self.session.current_round.categories = ["Nomi"]
@@ -155,7 +156,8 @@ class TestGameSession(unittest.IsolatedAsyncioTestCase):
         self.session.round_time = 60
         self.session.round_start_time = time.time() - 20
         self.session.words_to_vote = {"Nomi": {"P1": "Anna"}}
-        
+        self.session.scores = {"P1": 10}
+
         mock_client = AsyncMock()
         mock_client.username = "P2"
         

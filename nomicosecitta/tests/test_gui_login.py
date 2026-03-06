@@ -12,8 +12,12 @@ from src.client.gui.screens.login import LoginScreen
 
 class TkinterGUITestCase(unittest.TestCase):
     def setUp(self):
-        self.root = tk.Tk()
-        self.root.withdraw() 
+        try:
+            self.root = tk.Tk()
+            self.root.withdraw() 
+        except tk.TclError:
+            self.skipTest("Tkinter not available.")
+            return
         self.mock_manager = MagicMock()
         self.mock_manager.on_connect = MagicMock()
 
