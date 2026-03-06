@@ -13,6 +13,7 @@ from src.common.message import Message, MessageType
 from src.common.constants import DEFAULT_SERVER_PORT, GAME_MODE_CLASSIC
 
 from src.client.network_handler import NetworkHandler
+from src.client.reconnection_manager import ReconnectionManager
 from src.client.gui import GUIManager
 
 # Constants for lobby actions
@@ -28,6 +29,13 @@ class ClientController:
         self.peer_map = {}
         self.my_votes = {}
 
+        # Reconnection state
+        self.reconnection_manager = ReconnectionManager()
+        self.p2p_port: int = 0
+        self._reconnecting: bool = False
+        self._intentional_disconnect: bool = False
+
+        # GUI
         self.root = tk.Tk()
         self.gui = GUIManager(self.root)
 
@@ -52,24 +60,158 @@ class ClientController:
 
     def connect_to_server(self, ip, username):
         self.username = username
-        self.network = NetworkHandler(host=ip, port=DEFAULT_SERVER_PORT)
-        self.network.on_message    = self.handle_incoming_message
-        self.network.on_disconnect = self.handle_disconnection
+        self._intentional_disconnect = False
+
+        host, port = self.reconnection_manager.get_initial_server()
+        self.network = self._build_handler(host, port)
         asyncio.run_coroutine_threadsafe(self._async_connect(), self.loop)
 
+    def _build_handler(self, host: str, port: int) -> NetworkHandler:
+        handler = NetworkHandler(host=host, port=port)
+        handler.on_message = self.handle_incoming_message
+        handler.on_disconnect = self.handle_disconnection
+        return handler
+
     async def _async_connect(self):
-        p2p_port = await self.network.start_p2p_listener()
+        self.p2p_port = await self.network.start_p2p_listener()
         success  = await self.network.connect()
+
         if success:
             await self.network.send(Message(
                 type=MessageType.CMD_JOIN,
                 sender=self.username,
-                payload={"username": self.username, "p2p_port": p2p_port},
+                payload={"username": self.username, "p2p_port": self.p2p_port},
             ))
         else:
             self.root.after(0, lambda: messagebox.showerror(
-                "Error", "Unable to connect to the server"))
+                "Error", "Unable to connect to the server.\n"
+                f"Check config.json — servers: "
+                f"{', '.join(self.reconnection_manager.server_list)}"))
 
+    # Disconnection & reconnection
+
+    def handle_disconnection(self, reason: str):
+        if self._intentional_disconnect:
+            print("[CONTROLLER] Clean disconnect — skipping reconnection.")
+            return
+
+        if self._reconnecting:
+            print("[CONTROLLER] Reconnect already in progress — ignoring duplicate signal.")
+            return
+
+        print(f"[CONTROLLER] Unexpected disconnection: {reason}")
+        self._reconnecting = True
+
+        # Create the overlay on the main thread FIRST, then start the async loop
+        # from inside it — this guarantees the window exists before any
+        # reconnection callback tries to update or close it.
+        self.root.after(0, lambda: self._show_reconnect_overlay(reason))
+
+    # Reconnection overlay
+
+    def _show_reconnect_overlay(self, reason: str):
+        self._overlay = tk.Toplevel(self.root)
+        self._overlay.title("Reconnecting…")
+        self._overlay.resizable(False, False)
+        self._overlay.grab_set()
+        self._overlay.protocol("WM_DELETE_WINDOW", lambda: None)
+
+        self._overlay.geometry("380x160")
+        self.root.update_idletasks()
+        x = self.root.winfo_x() + (self.root.winfo_width()  - 380) // 2
+        y = self.root.winfo_y() + (self.root.winfo_height() - 160) // 2
+        self._overlay.geometry(f"380x160+{x}+{y}")
+
+        tk.Label(self._overlay,
+                 text="⚠  Connection lost",
+                 font=("Segoe UI", 12, "bold")).pack(pady=(18, 4))
+        tk.Label(self._overlay,
+                 text=f"Reason: {reason}",
+                 font=("Segoe UI", 9),
+                 fg="#888").pack()
+
+        self._overlay_status = tk.StringVar(value="Connecting…")
+        tk.Label(self._overlay,
+                 textvariable=self._overlay_status,
+                 font=("Segoe UI", 10),
+                 fg="#2b6cb0",
+                 wraplength=340).pack(pady=(12, 0))
+
+        self._overlay.update()
+
+        asyncio.run_coroutine_threadsafe(self._async_reconnect(), self.loop)
+
+    def _update_overlay(self, msg: str):
+        try:
+            self._overlay_status.set(msg)
+            self._overlay.update_idletasks()
+        except Exception:
+            pass
+        try:
+            self.gui.append_log(f"[⟳] {msg}")
+        except Exception:
+            pass
+
+    def _close_overlay(self):
+        try:
+            self._overlay.grab_release()
+            self._overlay.destroy()
+        except Exception:
+            pass
+
+    # Async reconnect loop
+
+    async def _async_reconnect(self):
+        def status_update(msg: str):
+            self.root.after(0, lambda m=msg: self._update_overlay(m))
+
+        new_handler = await self.reconnection_manager.reconnect(
+            network_factory=self._build_handler,
+            username=self.username,
+            p2p_port=self.p2p_port,
+            on_status=status_update,
+        )
+
+        self._reconnecting = False
+
+        if new_handler is None:
+            self.root.after(0, self._on_reconnection_failed)
+            return
+
+        self.network = new_handler
+        host, port = self.reconnection_manager.get_current_server()
+        print(f"[CONTROLLER] Active server is now {host}:{port}")
+
+        success = await self.network.send(Message(
+            type=MessageType.CMD_JOIN,
+            sender=self.username,
+            payload={"username": self.username, "p2p_port": self.p2p_port},
+        ))
+
+        if success:
+            self.root.after(0, lambda h=host, p=port:
+                            self._on_reconnection_success(h, p))
+        else:
+            self.root.after(0, self._on_reconnection_failed)
+
+    # Reconnection outcome callbacks
+
+    def _on_reconnection_success(self, host: str, port: int):
+        self._close_overlay()
+        info = f"Reconnected to {host}:{port}"
+        self.gui.append_log(f"[✓] {info}")
+        self.gui.update_game_status(info)
+        print(f"[CONTROLLER] {info}")
+
+    def _on_reconnection_failed(self):
+        self._close_overlay()
+        messagebox.showwarning(
+            "Connection Lost",
+            "Could not reconnect to any server.\n\n"
+            f"Servers tried: {', '.join(self.reconnection_manager.server_list)}\n\n"
+            "You will be returned to the login screen.")
+        self.gui.show_login()
+    
     # Lobby
 
     def send_lobby_settings(self, settings: dict):
@@ -195,7 +337,6 @@ class ClientController:
     # Score update & game over
 
     def _handle_score_update(self, payload: dict):
-        """Update the leaderboard panel and post a brief recap in chat."""
         round_scores  = payload.get("round_scores", {})
         global_scores = payload.get("scores", {})
         round_number  = payload.get("round_number", "?")
@@ -220,7 +361,6 @@ class ClientController:
         print(f"[CONTROLLER] Score update — global: {global_scores}")
 
     def _handle_game_over(self, payload: dict):
-        """Show game over dialog and reset to lobby."""
         winner = payload.get("winner", "Unknown")
         scores = payload.get("scores", {})
 
@@ -253,7 +393,6 @@ class ClientController:
             print("[ERROR] Disconnected. Cannot submit answers.")
 
     def handle_user_vote(self, target_user: str, category: str, is_valid: bool):
-        """Called when the user clicks Valid/Invalid in the GUI."""
         if category in self.my_votes:
             self.my_votes[category][target_user] = is_valid
 
@@ -265,7 +404,6 @@ class ClientController:
             print("[ERROR] Disconnected. Cannot broadcast vote.")
 
     async def broadcast_vote(self, target_user: str, category: str, is_valid: bool):
-        """Send a MSG_VOTE to all peers via P2P."""
         vote_msg = Message(
             type=MessageType.MSG_VOTE,
             sender=self.username,
@@ -276,7 +414,6 @@ class ClientController:
                 await self.network.send_p2p(peer_address, vote_msg)
 
     def submit_final_votes(self):
-        """Called when the user clicks 'Submit votes' in the voting UI."""
         print(f"[CONTROLLER] Sending final votes to server: {self.my_votes}")
         if self.network and self.network.is_connected():
             asyncio.run_coroutine_threadsafe(
@@ -306,13 +443,6 @@ class ClientController:
         for peer_name, peer_address in self.peer_map.items():
             if peer_name != self.username:
                 await self.network.send_p2p(peer_address, chat_msg)
-
-    # Disconnection
-
-    def handle_disconnection(self, reason: str):
-        self.root.after(0, lambda: messagebox.showwarning(
-            "Disconnected", f"Connection lost: {reason}"))
-        self.root.after(0, self.gui.show_login)
 
     def run(self):
         try:
