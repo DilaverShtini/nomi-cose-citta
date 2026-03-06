@@ -49,6 +49,8 @@ class ClientHandler:
                 except ValueError as e:
                     print(f"[ERROR] Invalid message from {self.addr}: {e}")
 
+        except asyncio.CancelledError:
+            self.server.is_shutting_down = True
         except Exception as e:
             print(f"[ERROR] Handler {self.addr}: {e}")
         finally:
@@ -74,17 +76,29 @@ class ClientHandler:
     async def _handle_join(self, payload: dict):
         username = payload.get("username", "").strip()
 
-        if not username or self.server.is_username_taken(username):
+        if self.server.session.state.name != "LOBBY":
+            if not hasattr(self.server, '_expected_players') or username not in self.server._expected_players:
+                err_msg = Message(
+                    MessageType.EVT_ERROR, "SERVER",
+                    {"error": "Game is already in progress. You cannot join now."}
+                )
+                await self.send(err_msg.to_bytes())
+                return
+            print(f"[RECOVERY] Il giocatore {username} si è riconnesso alla partita in corso!")
+
+        elif not username or self.server.is_username_taken(username):
             err_msg = Message(
                 MessageType.EVT_ERROR, "SERVER",
                 {"error": "Username already taken or invalid"}
             )
             await self.send(err_msg.to_bytes())
             return
-        
-        
         self.username = username
-        self.server.set_admin(username)
+
+        if hasattr(self.server, 'admin_username') and self.server.admin_username == username:
+            print(f"[RECOVERY] L'Admin originale {username} è tornato.")
+        else:
+            self.server.set_admin(username)
 
         p2p_port = payload.get("p2p_port")
         if p2p_port:
@@ -96,6 +110,8 @@ class ClientHandler:
 
         if self.server.session.state.name != "LOBBY":
             await self.server.session.sync_reconnecting_client(self)
+
+        self.server.save_state()
 
     async def _handle_start_game(self, settings: dict):
         if not self.username:
@@ -157,7 +173,11 @@ class ClientHandler:
 
         self.running = False
         had_username = self.username is not None
-        self.server.remove_client(self)
+        
+        is_server_crashing = getattr(self.server, 'is_shutting_down', False)
+
+        if not is_server_crashing:
+            self.server.remove_client(self)
 
         try:
             self.writer.close()
@@ -165,8 +185,8 @@ class ClientHandler:
         except Exception:
             pass
 
-        print(f"[DISCONNECTED] {self.addr} disconnected.")
+        print(f"[DISCONNECTED] {self.addr} disconnected. (Server crashing: {is_server_crashing})")
 
-        if had_username:
+        if had_username and not is_server_crashing:
             await self._broadcast_lobby_update()
             await self.server.session.handle_player_disconnection(self.username)

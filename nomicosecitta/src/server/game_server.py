@@ -4,6 +4,7 @@ from src.common.constants import DEFAULT_SERVER_HOST, DEFAULT_SERVER_PORT, GAME_
 from src.common.message import Message
 from src.server.client_handler import ClientHandler
 from src.server.game_session import GameSession
+from src.server.state_manager import StateManager
 
 class GameServer:
     """
@@ -25,15 +26,26 @@ class GameServer:
             "num_extra_categories": 2,
             "round_time": DEFAULT_ROUND_TIME,
         }
+        self.state_manager = StateManager()
+        self._expected_players = set()
         self.category_votes: dict[str, list] = {}
+        self.is_shutting_down = False
+
+    def save_state(self):
+        if getattr(self, 'is_shutting_down', False):
+            return
+        if hasattr(self, 'state_manager'):
+            self.state_manager.save_state(self)
 
     def update_lobby_settings(self, settings: dict):
         for key in ("mode", "num_extra_categories", "round_time"):
             if key in settings:
                 self.lobby_settings[key] = settings[key]
+        self.save_state()
 
     def set_category_votes(self, username: str, categories: list):
         self.category_votes[username] = list(categories)
+        self.save_state()
 
     def get_aggregated_categories(self, num_extra: int) -> list:
         vote_count: dict[str, int] = {}
@@ -49,6 +61,7 @@ class GameServer:
     
     def reset_category_votes(self):
         self.category_votes.clear()
+        self.save_state()
 
     async def start(self):
         """ 
@@ -57,6 +70,7 @@ class GameServer:
 
         print(f"[STARTING] Server starting on {self.host}:{self.port}...")
 
+        self.load_initial_state()
         self.server = await asyncio.start_server(
             self._handle_connection,
             self.host,
@@ -66,8 +80,12 @@ class GameServer:
 
         print(f"[LISTENING] Server is listening...")
 
-        async with self.server:
-            await self.server.serve_forever()
+        try:
+            async with self.server:
+                await self.server.serve_forever()
+        except BaseException:
+            self.is_shutting_down = True
+            raise
 
     async def _handle_connection(self, reader, writer):
         handler = ClientHandler(reader, writer, self)
@@ -156,6 +174,7 @@ class GameServer:
         Closes the main socket and all client connections.
         """
         self.running = False
+        self.is_shutting_down = True
 
         for client in list(self.clients):
             await client.close_connection()
@@ -166,3 +185,20 @@ class GameServer:
             await self.server.wait_closed()
 
         print("[SHUTDOWN] Server has been stopped.")
+
+    def load_initial_state(self):
+        """Reload the initial state from the state manager."""
+        state_data = self.state_manager.load_state()
+        if not state_data:
+            print("[SERVER] Nessun salvataggio trovato. Avvio pulito.")
+            return
+
+        print("[SERVER] Trovato state.json! Avvio procedura di Recovery...")
+        server_data = state_data.get("server", {})
+
+        self.lobby_settings = server_data.get("lobby_settings", self.lobby_settings)
+        self.category_votes = server_data.get("category_votes", {})
+        self.admin_username = server_data.get("admin")
+
+        self._expected_players = set(server_data.get("players", []))        
+        self.session.restore_from_state(state_data.get("session", {}))

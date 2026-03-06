@@ -331,11 +331,29 @@ class GameScreen(BaseScreen):
 
     def start_round(self, letter: str, categories: list,
                     round_number: int, duration: int):
+        if hasattr(self, '_timer_job'):
+            self.frame.after_cancel(self._timer_job)
+            del self._timer_job
+
         self.update_letter(letter)
         self.update_categories(categories)
         self.update_round_info(round_number)
         self.clear_answers()
         self.set_inputs_enabled(True)
+        self.update_status("Write your answers!")
+        self._timer.reset()
+        self._focus_first_entry()
+        self._local_duration = duration
+        if round_number == 1:
+            self.update_scoreboard({})
+            if hasattr(self, '_chat'):
+                if hasattr(self._chat, 'clear'):
+                    self._chat.clear()
+                elif hasattr(self._chat, 'display'):
+                    self._chat.display.configure(state="normal")
+                    self._chat.display.delete("1.0", "end")
+                    self._chat.display.configure(state="disabled")
+
         self.update_status("Write your answers!")
         self._timer.reset()
         self._focus_first_entry()
@@ -367,6 +385,10 @@ class GameScreen(BaseScreen):
 
     def build_voting_ui(self, words_to_vote: dict, my_username: str, duration: int = 0):
         self._my_username = my_username
+        if hasattr(self, '_timer_job'):
+            self.frame.after_cancel(self._timer_job)
+            del self._timer_job
+        
         for w in self._categories_frame.winfo_children():
             w.destroy()
 

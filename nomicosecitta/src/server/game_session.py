@@ -73,6 +73,9 @@ class GameSession:
             self.scores.setdefault(username, 0)
 
         self.current_settings = dict(settings)
+        self.server._expected_players = set(self.server.get_active_usernames())
+        self.server.save_state()
+
         await self._launch_round(settings)
         return True, "Game started"
 
@@ -108,6 +111,7 @@ class GameSession:
         self.round_time = int(settings.get("round_time", 60))
         self.current_round_number += 1
         self.round_start_time = time.time()
+        self.server.save_state()
 
         print(
             f"[GAME] Round {self.current_round_number}: "
@@ -137,6 +141,8 @@ class GameSession:
         self.received_answers[username] = words
         print(f"[GAME] Answers received from {username}. "
               f"({len(self.received_answers)}/{self.server.get_active_count()})")
+
+        self.server.save_state()
 
         if len(self.received_answers) >= self.server.get_active_count():
             print("[GAME] All players submitted — cancelling timer.")
@@ -195,6 +201,7 @@ class GameSession:
                 "duration": self.current_voting_duration
             }
         ))
+        self.server.save_state()
 
         self._voting_timer_task = asyncio.create_task(
             self._voting_timeout()
@@ -231,6 +238,8 @@ class GameSession:
         self.received_votes[username] = votes
         print(f"[GAME] Votes received from {username}. "
               f"({len(self.received_votes)}/{self.server.get_active_count()})")
+
+        self.server.save_state()
 
         if len(self.received_votes) >= self.server.get_active_count():
             print("[GAME] All players voted — finalizing round.")
@@ -326,6 +335,7 @@ class GameSession:
         for user, pts in round_scores.items():
             self.scores[user] = self.scores.get(user, 0) + pts
 
+        self.server.save_state()
         print(f"[GAME] Global scores: {self.scores}")
 
         await self.server.broadcast(Message(
@@ -355,6 +365,8 @@ class GameSession:
                     "winner": winner,
                 }
             ))
+            self.reset()
+            self.server.save_state()
         else:
             await asyncio.sleep(SCORE_DISPLAY_DELAY)
             await self._launch_round(self.current_settings)
@@ -368,10 +380,16 @@ class GameSession:
     async def handle_player_disconnection(self, username: str):
         """Handle a player dropping mid-game."""
         print(f"[GAME] Player {username} disconnected during state {self.state}.")
+        
+        if getattr(self.server, 'is_shutting_down', False):
+            return
+        
         active_count = self.server.get_active_count()
 
         if active_count == 0:
+            print("[GAME] Tutti i giocatori hanno abbandonato. Reset e ritorno alla LOBBY.")
             self.reset()
+            self.server.save_state()
             return
 
         if self.state == GameState.WAITING_INPUT:
@@ -397,9 +415,12 @@ class GameSession:
 
         await self.server.broadcast(peermap_msg)
         
-        time_passed = time.time() - self.round_start_time
-        time_left = int(self.round_time - time_passed)
-        if time_left < 0:
+        if self.state == GameState.WAITING_INPUT:
+            time_passed = time.time() - self.round_start_time
+            time_left = int(self.round_time - time_passed)
+            if time_left < 0:
+                time_left = 0
+        else:
             time_left = 0
 
         sync_msg = Message(
@@ -413,6 +434,18 @@ class GameSession:
             }
         )
         await client_handler.send(sync_msg.to_bytes())
+
+        if self.scores:
+            await client_handler.send(Message(
+                type=MessageType.EVT_SCORE_UPDATE,
+                sender="SERVER",
+                payload={
+                    "round_scores": {},
+                    "scores": dict(self.scores),
+                    "round_data": {},
+                    "round_number": self.current_round_number
+                }
+            ).to_bytes())
 
         if self.state == GameState.VOTING:
             time_passed = time.time() - getattr(self, 'voting_start_time', time.time())
@@ -444,4 +477,34 @@ class GameSession:
         self._timer_task = None
 
         self.server.reset_category_votes()
-        self.server.admin_username = None
+
+    def restore_from_state(self, session_data: dict):
+        """Restore the game session state from a dictionary."""
+        print("[RECOVERY] Ripristino dello stato della GameSession...")
+        
+        state_name = session_data.get("state", "LOBBY")
+        self.state = GameState[state_name]
+        self.current_round_number = session_data.get("round_number", 0)
+        self.scores = session_data.get("scores", {})
+        self.old_letters = set(session_data.get("old_letters", []))
+        self.round_time = session_data.get("round_time", 60)
+        self.current_settings = session_data.get("current_settings", {})
+        
+        round_info = session_data.get("current_round")
+        if round_info:
+            self.current_round = RoundManager(self.current_settings, self.old_letters)
+            self.current_round.letter = round_info.get("letter", "A")
+            self.current_round.categories = round_info.get("categories", [])
+            
+        self.received_answers = session_data.get("received_answers", {})
+        self.received_votes = session_data.get("received_votes", {})
+        self.round_data = session_data.get("round_data", {})
+        self.words_to_vote = session_data.get("words_to_vote", {})
+        
+        now = time.time()
+        self.round_start_time = now - session_data.get("round_time_passed", 0)
+        self.current_voting_duration = session_data.get("current_voting_duration", 60)
+        if self.state == GameState.VOTING:
+            self.voting_start_time = now - session_data.get("voting_time_passed", 0)
+            
+        print(f"[RECOVERY] Sessione ripristinata. Stato attuale: {self.state.name}")

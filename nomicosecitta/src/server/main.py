@@ -44,9 +44,11 @@ async def run_server(host, port):
     server = GameServer(host, port)
     try:
         await server.start()
-    except KeyboardInterrupt:
-        print("\n[SHUTDOWN] Server stopping by user request...")
+    except BaseException as e:
+        print(f"\n[SHUTDOWN/CRASH] Server stopped: {e}")
+        server.is_shutting_down = True
     finally:
+        server.is_shutting_down = True
         await server.stop()
 
 async def run_with_replication(host, port):
