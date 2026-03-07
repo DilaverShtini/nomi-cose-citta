@@ -49,12 +49,19 @@ class StateManager:
             }
         }
 
+        temp_filepath = self.filepath + ".tmp"
         try:
-            with open(self.filepath, 'w', encoding='utf-8') as f:
+            with open(temp_filepath, 'w', encoding='utf-8') as f:
                 json.dump(state_data, f, indent=4, ensure_ascii=False)
-            print(f"[STATE MANAGER] Stato salvato con successo in {self.filepath}")
+                f.flush()
+                os.fsync(f.fileno())
+
+            os.replace(temp_filepath, self.filepath)
+            print(f"[STATE MANAGER] Stato salvato in modo sicuro in {self.filepath}")
         except Exception as e:
             print(f"[STATE MANAGER] Errore durante il salvataggio: {e}")
+            if os.path.exists(temp_filepath):
+                os.remove(temp_filepath)
 
     def load_state(self):
         """

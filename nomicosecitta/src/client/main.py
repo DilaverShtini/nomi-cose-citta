@@ -62,31 +62,67 @@ class ClientController:
         self.username = username
         self._intentional_disconnect = False
 
-        host, port = self.reconnection_manager.get_initial_server()
-        self.network = self._build_handler(host, port)
-        asyncio.run_coroutine_threadsafe(self._async_connect(), self.loop)
+        self.root.config(cursor="watch")
+        self.root.title("Nomi, Cose, Città - Ricerca Server in corso...")
 
-    def _build_handler(self, host: str, port: int) -> NetworkHandler:
-        handler = NetworkHandler(host=host, port=port)
-        handler.on_message = self.handle_incoming_message
-        handler.on_disconnect = self.handle_disconnection
-        return handler
+        future = asyncio.run_coroutine_threadsafe(self._async_connect(), self.loop)
+
+        def check_fatal_errors(f):
+            try:
+                f.result() 
+            except Exception as e:
+                import traceback
+                print("\n" + "="*50)
+                print(f"[ERRORE FATALE NASCOSTO]: {e}")
+                traceback.print_exc()
+                print("="*50 + "\n")
+
+                self.root.after(0, lambda: self.root.config(cursor=""))
+                self.root.after(0, lambda: self.root.title("Nomi, Cose, Città"))
+
+        future.add_done_callback(check_fatal_errors)
 
     async def _async_connect(self):
-        self.p2p_port = await self.network.start_p2p_listener()
-        success  = await self.network.connect()
+        def status_update(msg: str):
+            print(f"[LOGIN] {msg}")
+            self.root.after(0, lambda: self.root.title(f"Ricerca Server: {msg}"))
 
-        if success:
-            await self.network.send(Message(
-                type=MessageType.CMD_JOIN,
-                sender=self.username,
-                payload={"username": self.username, "p2p_port": self.p2p_port},
-            ))
-        else:
+        new_handler = await self.reconnection_manager.reconnect(
+            network_factory=self._build_handler,
+            username=self.username,
+            p2p_port=0, 
+            on_status=status_update
+        )
+
+        self.root.after(0, lambda: self.root.config(cursor=""))
+        self.root.after(0, lambda: self.root.title("Nomi, Cose, Città"))
+
+        if new_handler is None:
             self.root.after(0, lambda: messagebox.showerror(
-                "Error", "Unable to connect to the server.\n"
-                f"Check config.json — servers: "
-                f"{', '.join(self.reconnection_manager.server_list)}"))
+                "Error", "Impossibile connettersi a nessun server.\n"
+                f"Tentativi falliti su: {', '.join(self.reconnection_manager.server_list)}"
+            ))
+            return
+
+        self.network = new_handler
+        self.p2p_port = await self.network.start_p2p_listener()
+
+        success = await self.network.send(Message(
+            type=MessageType.CMD_JOIN,
+            sender=self.username,
+            payload={"username": self.username, "p2p_port": self.p2p_port}
+        ))
+
+        if not success:
+            self.root.after(0, lambda: messagebox.showerror(
+                "Error", "Connesso al server, ma invio del comando JOIN fallito."
+            ))
+
+    def _build_handler(self, host, port):
+        handler = NetworkHandler(host, port)
+        handler.on_message = self.handle_incoming_message
+        handler.on_disconnect = self.on_disconnect
+        return handler
 
     # Disconnection & reconnection
 
@@ -181,6 +217,7 @@ class ClientController:
         self.network = new_handler
         host, port = self.reconnection_manager.get_current_server()
         print(f"[CONTROLLER] Active server is now {host}:{port}")
+        self.p2p_port = await self.network.start_p2p_listener()
 
         success = await self.network.send(Message(
             type=MessageType.CMD_JOIN,
@@ -189,8 +226,7 @@ class ClientController:
         ))
 
         if success:
-            self.root.after(0, lambda h=host, p=port:
-                            self._on_reconnection_success(h, p))
+            self.root.after(0, lambda h=host, p=port: self._on_reconnection_success(h, p))
         else:
             self.root.after(0, self._on_reconnection_failed)
 
@@ -334,6 +370,9 @@ class ClientController:
             self.root.after(0, lambda: self.gui.append_log(
                 f"[{msg_obj.sender}] {msg_obj.type}"))
 
+    def on_disconnect(self, reason):
+        self.handle_disconnection(reason)
+
     # Score update & game over
 
     def _handle_score_update(self, payload: dict):
@@ -446,12 +485,29 @@ class ClientController:
 
     def run(self):
         try:
+            self.root.protocol("WM_DELETE_WINDOW", self._on_window_close)
             self.root.mainloop()
         finally:
-            if self.network:
-                asyncio.run_coroutine_threadsafe(
-                    self.network.disconnect(), self.loop)
-            self.loop.call_soon_threadsafe(self.loop.stop)
+            self._shutdown_client()
+
+    def _on_window_close(self):
+        """Intercept the window close event to stop processes before closing."""
+        self._intentional_disconnect = True
+        self.root.quit()
+
+    def _shutdown_client(self):
+        """Turn off the client safely."""
+        print("[CLIENT] Inizio spegnimento sicuro dei thread...")
+        
+        if self.network:
+            future = asyncio.run_coroutine_threadsafe(self.network.disconnect(), self.loop)
+            try:
+                future.result(timeout=1.5)
+            except Exception:
+                pass
+                
+        self.loop.call_soon_threadsafe(self.loop.stop)
+        print("[CLIENT] Spegnimento completato.")
 
 
 if __name__ == "__main__":

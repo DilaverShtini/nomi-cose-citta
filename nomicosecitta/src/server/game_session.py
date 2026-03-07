@@ -217,18 +217,24 @@ class GameSession:
             pass
 
     async def _end_round(self):
-        print("[GAME] Input timer expired.")
+        print("[GAME] Input timer expired. Richiesta parole ai client...")
         if self.state != GameState.WAITING_INPUT:
             return
 
-        self.state = GameState.VOTING
         await self.server.broadcast(Message(
             type=MessageType.EVT_ROUND_END,
             sender="SERVER",
             payload={"reason": "TIME_UP"}
         ))
-        self._process_initial_validation()
-        await self._start_voting_phase()
+
+        async def wait_for_last_answers():
+            await asyncio.sleep(3)
+            if self.state == GameState.WAITING_INPUT:
+                print("[GAME] Fine tolleranza. Inizio validazione e voti.")
+                self._process_initial_validation()
+                await self._start_voting_phase()
+
+        asyncio.create_task(wait_for_last_answers())
 
     async def receive_votes(self, username: str, votes: dict):
         if self.state != GameState.VOTING:
@@ -387,9 +393,16 @@ class GameSession:
         active_count = self.server.get_active_count()
 
         if active_count == 0:
-            print("[GAME] Tutti i giocatori hanno abbandonato. Reset e ritorno alla LOBBY.")
-            self.reset()
-            self.server.save_state()
+            print("[GAME] Nessun giocatore rimasto. Attendo 2 secondi prima di resettare...")
+            
+            async def delayed_reset():
+                await asyncio.sleep(2)
+                if self.server.get_active_count() == 0 and not getattr(self.server, 'is_shutting_down', False):
+                    print("[GAME] Reset confermato. Ritorno alla LOBBY.")
+                    self.reset()
+                    self.server.save_state()
+
+            asyncio.create_task(delayed_reset())
             return
 
         if self.state == GameState.WAITING_INPUT:
@@ -504,7 +517,25 @@ class GameSession:
         now = time.time()
         self.round_start_time = now - session_data.get("round_time_passed", 0)
         self.current_voting_duration = session_data.get("current_voting_duration", 60)
-        if self.state == GameState.VOTING:
-            self.voting_start_time = now - session_data.get("voting_time_passed", 0)
+        if self.state == GameState.WAITING_INPUT:
+            passed = session_data.get("round_time_passed", 0)
+            remaining = max(0, self.round_time - passed)
+            print(f"[RECOVERY] Ripristino timer Round: mancano {remaining:.1f} secondi.")
             
+            async def resume_round_timer(wait_time):
+                await asyncio.sleep(wait_time)
+                await self._end_round()
+            self._timer_task = asyncio.create_task(resume_round_timer(remaining))
+
+        elif self.state == GameState.VOTING:
+            self.voting_start_time = now - session_data.get("voting_time_passed", 0)
+            passed = session_data.get("voting_time_passed", 0)
+            remaining = max(0, self.current_voting_duration - passed)
+            print(f"[RECOVERY] Ripristino timer Voti: mancano {remaining:.1f} secondi.")
+            
+            async def resume_voting_timer(wait_time):
+                await asyncio.sleep(wait_time)
+                if self.state == GameState.VOTING:
+                    await self._finalize_round()
+            self._voting_timer_task = asyncio.create_task(resume_voting_timer(remaining))
         print(f"[RECOVERY] Sessione ripristinata. Stato attuale: {self.state.name}")

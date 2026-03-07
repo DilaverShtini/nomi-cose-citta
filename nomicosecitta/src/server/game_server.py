@@ -1,4 +1,5 @@
 import asyncio
+import os
 
 from src.common.constants import DEFAULT_SERVER_HOST, DEFAULT_SERVER_PORT, GAME_MODE_CLASSIC, DEFAULT_ROUND_TIME
 from src.common.message import Message
@@ -188,10 +189,16 @@ class GameServer:
 
     def load_initial_state(self):
         """Reload the initial state from the state manager."""
-        state_data = self.state_manager.load_state()
-        if not state_data:
+        if not os.path.exists(self.state_manager.filepath):
             print("[SERVER] Nessun salvataggio trovato. Avvio pulito.")
             return
+
+        state_data = self.state_manager.load_state()
+        if state_data is None:
+            print("[CRITICAL] state.json corrotto! Arresto per prevenire perdite di dati.")
+            print("[INFO] Elimina manualmente shared_data/state.json per resettare.")
+            import sys
+            sys.exit(1)
 
         print("[SERVER] Trovato state.json! Avvio procedura di Recovery...")
         server_data = state_data.get("server", {})
