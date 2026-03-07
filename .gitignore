@@ -15,4 +15,4 @@ env/
 Thumbs.db
 .coverage
 htmlcov/
-nomicosecitta/shared_data/heartbeat.json
+nomicosecitta/shared_data/
