@@ -68,13 +68,8 @@ class ClientController:
         discovered_ip, discovered_port = self.reconnection_manager.discover_server_on_lan()
         
         if discovered_ip:
-            host, port = discovered_ip, discovered_port
-            server_string = f"{host}:{port}"
-            try:
-                if server_string not in self.reconnection_manager.server_list:
-                    self.reconnection_manager.server_list.insert(0, server_string)
-            except AttributeError:
-                pass
+            host, port = discovered_ip, discovered_port            
+            self.reconnection_manager.set_discovered_server(host, port)
         else:
             host, port = self.reconnection_manager.get_initial_server()
         future = asyncio.run_coroutine_threadsafe(self._async_connect(host, port), self.loop)
