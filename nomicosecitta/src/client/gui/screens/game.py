@@ -481,18 +481,20 @@ class GameScreen(BaseScreen):
 
         sf = tk.Frame(self._categories_frame, bg=theme.BG_PAGE)
         sf.pack(fill="x", pady=(30, 10))
+        needs_voting = len(self._vote_buttons) > 0
 
         self._submit_votes_btn = tk.Button(
             sf, text="Ready",
             command=self._on_submit_votes_click,
-            state="normal"
+            state="disabled" if needs_voting else "normal"
         )
-        theme.style_button(self._submit_votes_btn, variant="primary")
+        theme.style_button(self._submit_votes_btn, variant="ghost" if needs_voting else "primary")
         self._submit_votes_btn.pack()
 
+        hint_text = "Vote all answers to unlock the button." if needs_voting else "No answers to vote."
         self._submit_hint = tk.Label(
             sf,
-            text="Review the answers and click when ready.",
+            text=hint_text,
             font=(theme.HAND_FONT, 9, "italic"),
             bg=theme.BG_PAGE, fg=theme.INK_LIGHT)
         self._submit_hint.pack(pady=(4, 0))
@@ -515,7 +517,8 @@ class GameScreen(BaseScreen):
                 self._timer.set_expired()
                 self.update_status("Time's up! Submitting votes...")
                 
-                if hasattr(self, '_submit_votes_btn') and self._submit_votes_btn['state'] != "disabled":
+                if hasattr(self, '_submit_votes_btn'):
+                    self._submit_votes_btn.configure(state="normal")
                     self._on_submit_votes_click()
 
     def _cast_vote(self, target_user: str, category: str, is_valid: bool,
@@ -525,6 +528,11 @@ class GameScreen(BaseScreen):
         theme.style_button(btn_yes, variant="success" if is_valid else "ghost")
         theme.style_button(btn_no, variant="ghost" if is_valid else "danger")
 
+        if len(self._voted_items) >= len(self._vote_buttons):
+            self._submit_votes_btn.configure(state="normal")
+            theme.style_button(self._submit_votes_btn, variant="primary")
+            if hasattr(self, '_submit_hint'):
+                self._submit_hint.configure(text="All answers voted.", fg=theme.GREEN_INK)
         if hasattr(self, '_my_username'):
             self.update_peer_vote(target_user, category,
                                   f"{self._my_username} (YOU)", is_valid)

@@ -1,23 +1,24 @@
 import asyncio
 import json
 import os
+import socket
 from typing import Callable, Optional, Tuple
 
 class ReconnectionManager:
     """
-    Manages automatica reconnection with circular server retry.
+    Manages automatic reconnection with circular server retry.
     """
 
-    _DEFAULT_SERVERS = ["127.0.0.1:5000"]
-    _DEFAULT_MAX_RETRIES = 3
+    _DEFAULT_FALLBACK_SERVERS = ["127.0.0.1:5000"]
+    _DEFAULT_MAX_RETRIES = 6
     _DEFAULT_RETRY_DELAY = 2.0
 
     def __init__(self, config_path: Optional[str] = None):
         resolved = config_path or self._find_config()
-        raw_cfg = self._load_json(resolved)
+        self.raw_cfg = self._load_json(resolved)
 
-        raw_servers = raw_cfg.get("servers", self._DEFAULT_SERVERS)
-        recon_cfg = raw_cfg.get("reconnection", {})
+        raw_servers = self.raw_cfg.get("debug_fallback_servers", self._DEFAULT_FALLBACK_SERVERS)
+        recon_cfg = self.raw_cfg.get("reconnection", {})
 
         self.servers: list[Tuple[str, int]] = [
             self._parse_address(addr) for addr in raw_servers
@@ -30,7 +31,7 @@ class ReconnectionManager:
         self._index: int = 0
         self._active: bool = False
 
-        print(f"[ReconnectionManager] Servers: {self.server_list}")
+        print(f"[ReconnectionManager] Fallback Servers: {self.server_list}")
         print(f"[ReconnectionManager] Retries/server: {self.max_retries}, "
               f"delay: {self.retry_delay}s")
         
@@ -71,6 +72,15 @@ class ReconnectionManager:
         port = int(parts[1]) if len(parts) > 1 else 5000
         return (host, port)
     
+    def set_discovered_server(self, host: str, port: int):
+        """
+        Forces the manager to exclusively use the discovered LAN server,
+        wiping out any static fallback configurations.
+        """
+        self.servers = [(host, port)]
+        self._index = 0
+        print(f"[ReconnectionManager] Locked connection target to discovered server: {host}:{port}")
+
     def get_initial_server(self) -> Tuple[str, int]:
         return self.servers[0]
     
@@ -78,7 +88,7 @@ class ReconnectionManager:
         return self.servers[self._index]
     
     def advance(self) -> Tuple[str, int]:
-        """Rotate to the next erver (circular) and return it."""
+        """Rotate to the next server (circular) and return it."""
         self._index = (self._index + 1) % len(self.servers)
         return self.servers[self._index]
     
@@ -94,8 +104,6 @@ class ReconnectionManager:
     ) -> Optional[object]:
         """
         Attempt reconnection in circular order until success or exhaustion.
-
-        Creates  a fresh NetworkHandler for each attempt so that the failed socket state never leaks into the connection.
         """
         if self._active:
             print("[ReconnectionManager] Reconnect already in progress — ignoring.")
@@ -142,3 +150,41 @@ class ReconnectionManager:
     @property
     def server_list(self) -> list[str]:
         return [f"{h}:{p}" for h, p in self.servers]
+    
+    def discover_server_on_lan(self):
+        disc_cfg = self.raw_cfg.get("discovery", {})
+        if not disc_cfg.get("enabled", True):
+            print("[DISCOVERY] UDP Discovery is disabled in config.json")
+            return None, None
+            
+        broadcast_port = disc_cfg.get("udp_port", 50000)
+        timeout_seconds = disc_cfg.get("timeout_seconds", 3.0)
+        
+        print("[DISCOVERY] Scanning for servers on the local network...")
+        
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        
+        sock.bind(('', broadcast_port))
+        sock.settimeout(timeout_seconds)
+        
+        try:
+            data, addr = sock.recvfrom(1024)
+            msg = data.decode('utf-8')
+            
+            if msg.startswith("NOMI_COSE_CITTA:"):
+                server_ip = addr[0]
+                tcp_port = int(msg.split(":")[1])
+                
+                print(f"[DISCOVERY] Server found at {server_ip}:{tcp_port}!")
+                return server_ip, tcp_port
+                
+        except socket.timeout:
+            print("[DISCOVERY] No servers found on the local network.")
+        except Exception as e:
+            print(f"[DISCOVERY] Error during discovery: {e}")
+        finally:
+            sock.close()
+            
+        return None, None
