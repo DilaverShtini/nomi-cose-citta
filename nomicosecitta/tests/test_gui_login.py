@@ -49,7 +49,7 @@ class TestLoginScreen(TkinterGUITestCase):
         self.screen._handle_connect()
         self.root.update()
 
-        self.mock_manager.on_connect.assert_called_once_with("127.0.0.1", "Chiara")
+        self.mock_manager.on_connect.assert_called_once_with("0.0.0.0", "Chiara")
 
     @patch('src.client.gui.screens.login.messagebox.showerror')
     def test_login_flow_missing_data(self, mock_showerror):
