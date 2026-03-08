@@ -335,6 +335,10 @@ class GameScreen(BaseScreen):
             self.frame.after_cancel(self._timer_job)
             del self._timer_job
 
+        if hasattr(self, '_voting_timer_job'):
+            self.frame.after_cancel(self._voting_timer_job)
+            del self._voting_timer_job
+
         self.update_letter(letter)
         self.update_categories(categories)
         self.update_round_info(round_number)
@@ -388,7 +392,11 @@ class GameScreen(BaseScreen):
         if hasattr(self, '_timer_job'):
             self.frame.after_cancel(self._timer_job)
             del self._timer_job
-        
+
+        if hasattr(self, '_voting_timer_job'):
+            self.frame.after_cancel(self._voting_timer_job)
+            del self._voting_timer_job
+
         for w in self._categories_frame.winfo_children():
             w.destroy()
 

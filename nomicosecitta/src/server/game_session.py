@@ -425,7 +425,6 @@ class GameSession:
             sender="SERVER",
             payload={"peermap": self.server.get_peer_map()}
         )
-
         await self.server.broadcast(peermap_msg)
         
         if self.state == GameState.WAITING_INPUT:
@@ -433,20 +432,18 @@ class GameSession:
             time_left = int(self.round_time - time_passed)
             if time_left < 0:
                 time_left = 0
-        else:
-            time_left = 0
 
-        sync_msg = Message(
-            type=MessageType.EVT_ROUND_START,
-            sender="SERVER",
-            payload={
-                "letter": self.current_round.letter,
-                "categories": self.current_round.categories,
-                "duration": time_left,
-                "round_number": self.current_round_number
-            }
-        )
-        await client_handler.send(sync_msg.to_bytes())
+            sync_msg = Message(
+                type=MessageType.EVT_ROUND_START,
+                sender="SERVER",
+                payload={
+                    "letter": self.current_round.letter,
+                    "categories": self.current_round.categories,
+                    "duration": time_left,
+                    "round_number": self.current_round_number
+                }
+            )
+            await client_handler.send(sync_msg.to_bytes())
 
         if self.scores:
             await client_handler.send(Message(
