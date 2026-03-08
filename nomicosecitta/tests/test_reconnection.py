@@ -189,7 +189,7 @@ class TestReconnectLoop(unittest.IsolatedAsyncioTestCase):
             on_status=statuses.append)
         self.assertGreaterEqual(len(statuses), 2)
         self.assertTrue(any("Reconnecting" in s for s in statuses))
-        self.assertTrue(any("✓" in s for s in statuses))
+        self.assertTrue(any("successfully" in s for s in statuses))
 
     async def test_status_callback_exhaustion_message(self):
         mgr      = self._make_mgr(["S1:5000"], max_retries=1)
