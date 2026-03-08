@@ -272,6 +272,10 @@ class GameScreen(BaseScreen):
             entry.pack(side="left", fill="x", expand=True, ipady=4)
             entry.bind("<Return>", lambda e, idx=i: self._focus_next(idx))
 
+        self.frame.update_idletasks()
+        self._canvas.yview_moveto(0)
+        self._canvas.xview_moveto(0)
+
     def _focus_next(self, idx):
         rows = [w for w in self._categories_frame.winfo_children()
                 if isinstance(w, tk.Frame)]
