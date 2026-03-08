@@ -1,5 +1,6 @@
 import asyncio
 import os
+import socket
 
 from src.common.constants import DEFAULT_SERVER_HOST, DEFAULT_SERVER_PORT, GAME_MODE_CLASSIC, DEFAULT_ROUND_TIME
 from src.common.message import Message
@@ -78,6 +79,7 @@ class GameServer:
             self.port
         )
         self.running = True
+        asyncio.create_task(self._udp_broadcaster())
 
         print(f"[LISTENING] Server is listening...")
 
@@ -209,3 +211,21 @@ class GameServer:
 
         self._expected_players = set(server_data.get("players", []))        
         self.session.restore_from_state(state_data.get("session", {}))
+
+    async def _udp_broadcaster(self):
+        """Sends periodic UDP broadcasts to announce the server's presence on the local network."""
+        loop = asyncio.get_running_loop()
+        
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        sock.setblocking(False)
+        
+        message = f"NOMI_COSE_CITTA:{self.port}".encode('utf-8')
+        print(f"[DISCOVERY] UDP broadcaster started on port {self.port}, announcing server presence...")
+        
+        while self.running:
+            try:
+                await loop.sock_sendto(sock, message, ('255.255.255.255', 50000))
+            except Exception as e:
+                pass
+            await asyncio.sleep(2)

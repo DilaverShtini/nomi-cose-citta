@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import socket
 from typing import Callable, Optional, Tuple
 
 class ReconnectionManager:
@@ -142,3 +143,33 @@ class ReconnectionManager:
     @property
     def server_list(self) -> list[str]:
         return [f"{h}:{p}" for h, p in self.servers]
+    
+    def discover_server_on_lan(self, broadcast_port=50000, timeout_seconds=3.0):
+        print("[DISCOVERY] Scanning for servers on the local network...")
+        
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        
+        sock.bind(('', broadcast_port))
+        sock.settimeout(timeout_seconds)
+        
+        try:
+            data, addr = sock.recvfrom(1024)
+            msg = data.decode('utf-8')
+            
+            if msg.startswith("NOMI_COSE_CITTA:"):
+                server_ip = addr[0]
+                tcp_port = int(msg.split(":")[1])
+                
+                print(f"[DISCOVERY] Server found at {server_ip}:{tcp_port}!")
+                return server_ip, tcp_port
+                
+        except socket.timeout:
+            print("[DISCOVERY] No servers found on the local network.")
+        except Exception as e:
+            print(f"[DISCOVERY] Error during discovery: {e}")
+        finally:
+            sock.close()
+            
+        return None, None

@@ -63,9 +63,21 @@ class ClientController:
         self._intentional_disconnect = False
 
         self.root.config(cursor="watch")
-        self.root.title("Nomi, Cose, Città - Ricerca Server in corso...")
+        self.root.title("Nomi, Cose, Città - Searching server...")
 
-        future = asyncio.run_coroutine_threadsafe(self._async_connect(), self.loop)
+        discovered_ip, discovered_port = self.reconnection_manager.discover_server_on_lan()
+        
+        if discovered_ip:
+            host, port = discovered_ip, discovered_port
+            server_string = f"{host}:{port}"
+            try:
+                if server_string not in self.reconnection_manager.server_list:
+                    self.reconnection_manager.server_list.insert(0, server_string)
+            except AttributeError:
+                pass
+        else:
+            host, port = self.reconnection_manager.get_initial_server()
+        future = asyncio.run_coroutine_threadsafe(self._async_connect(host, port), self.loop)
 
         def check_fatal_errors(f):
             try:
@@ -73,7 +85,7 @@ class ClientController:
             except Exception as e:
                 import traceback
                 print("\n" + "="*50)
-                print(f"[ERRORE FATALE NASCOSTO]: {e}")
+                print(f"[FATAL ERROR]: {e}")
                 traceback.print_exc()
                 print("="*50 + "\n")
 
@@ -82,40 +94,49 @@ class ClientController:
 
         future.add_done_callback(check_fatal_errors)
 
-    async def _async_connect(self):
+    async def _async_connect(self, host, port):
         def status_update(msg: str):
             print(f"[LOGIN] {msg}")
-            self.root.after(0, lambda: self.root.title(f"Ricerca Server: {msg}"))
+            self.root.after(0, lambda: self.root.title(f"Searching server: {msg}"))
 
-        new_handler = await self.reconnection_manager.reconnect(
-            network_factory=self._build_handler,
-            username=self.username,
-            p2p_port=0, 
-            on_status=status_update
-        )
+        status_update(f"Connessione a {host}:{port} ...")
+        self.network = self._build_handler(host, port)
+        self.p2p_port = await self.network.start_p2p_listener()
+        success = await self.network.connect()
+
+        if not success:
+            status_update("Direct connection failed. Starting fallback...")
+            new_handler = await self.reconnection_manager.reconnect(
+                network_factory=self._build_handler,
+                username=self.username,
+                p2p_port=0, 
+                on_status=status_update
+            )
+            
+            if new_handler is None:
+                self.root.after(0, lambda: self.root.config(cursor=""))
+                self.root.after(0, lambda: self.root.title("Nomi, Cose, Città"))
+                self.root.after(0, lambda: messagebox.showerror(
+                    "Error", "Impossible to connect to any server.\n"
+                    f"Failed attempts on: {', '.join(self.reconnection_manager.server_list)}"
+                ))
+                return
+                
+            self.network = new_handler
+            self.p2p_port = await self.network.start_p2p_listener()
 
         self.root.after(0, lambda: self.root.config(cursor=""))
         self.root.after(0, lambda: self.root.title("Nomi, Cose, Città"))
 
-        if new_handler is None:
-            self.root.after(0, lambda: messagebox.showerror(
-                "Error", "Impossibile connettersi a nessun server.\n"
-                f"Tentativi falliti su: {', '.join(self.reconnection_manager.server_list)}"
-            ))
-            return
-
-        self.network = new_handler
-        self.p2p_port = await self.network.start_p2p_listener()
-
-        success = await self.network.send(Message(
+        join_success = await self.network.send(Message(
             type=MessageType.CMD_JOIN,
             sender=self.username,
             payload={"username": self.username, "p2p_port": self.p2p_port}
         ))
 
-        if not success:
+        if not join_success:
             self.root.after(0, lambda: messagebox.showerror(
-                "Error", "Connesso al server, ma invio del comando JOIN fallito."
+                "Error", "Connected to server, but failed to send JOIN command."
             ))
 
     def _build_handler(self, host, port):
