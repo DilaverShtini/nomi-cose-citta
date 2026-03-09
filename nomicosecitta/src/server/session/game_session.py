@@ -9,9 +9,9 @@ from src.common.constants import (
 )
 from src.common.message import Message, MessageType, GameState
 from src.server.round_manager import RoundManager
-from src.server.answer_validator import AnswerValidator
-from src.server.voting_aggregator import VotingAggregator
-from src.server.scoring_engine import ScoringEngine
+from nomicosecitta.src.server.session.answer_validator import AnswerValidator
+from nomicosecitta.src.server.session.voting_aggregator import VotingAggregator
+from nomicosecitta.src.server.session.scoring_engine import ScoringEngine
 
 
 class GameSession:
