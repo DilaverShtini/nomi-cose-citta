@@ -121,8 +121,9 @@ class GameServer:
         return self.admin_username
 
     def set_admin(self, username: str):
-        if self.admin_username is None:
+        if self.admin_username is None or self.admin_username not in self.get_active_usernames():
             self.admin_username = username
+            print(f"[SERVER] Admin assigned/reassigned to: {self.admin_username}")
 
     def _elect_new_admin(self):
         for client in self.clients:
@@ -132,6 +133,7 @@ class GameServer:
                 return
         self.admin_username = None
         print("[SERVER] No players remaining — admin slot vacant.")
+        self.save_state()
 
     # Lobby / category votes
     
