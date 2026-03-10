@@ -19,7 +19,7 @@ Tests for the ReconnectionManager module.
 
 def _make_config(servers, max_retries=2, delay=0.0) -> dict:
     return {
-        "servers": servers,
+        "debug_fallback_servers": servers,
         "reconnection": {
             "max_retries_per_server": max_retries,
             "retry_delay_seconds": delay,
@@ -65,7 +65,7 @@ class TestConfigLoading(unittest.TestCase):
     def test_missing_config_uses_defaults(self):
         mgr = ReconnectionManager(config_path="/nonexistent/path/config.json")
         self.assertEqual(mgr.servers, [("127.0.0.1", 5000)])
-        self.assertEqual(mgr.max_retries, 3)
+        self.assertEqual(mgr.max_retries, 6)
 
     def test_malformed_json_uses_defaults(self):
         tmp = tempfile.NamedTemporaryFile(
@@ -79,11 +79,11 @@ class TestConfigLoading(unittest.TestCase):
             os.unlink(tmp.name)
 
     def test_config_without_reconnection_section_uses_defaults(self):
-        cfg  = {"servers": ["192.168.1.10:5000"]}
+        cfg  = {"debug_fallback_servers": ["192.168.1.10:5000"]}
         path = _write_config(cfg)
         try:
             mgr = ReconnectionManager(config_path=path)
-            self.assertEqual(mgr.max_retries, 3)
+            self.assertEqual(mgr.max_retries, 6)
             self.assertAlmostEqual(mgr.retry_delay, 2.0)
         finally:
             os.unlink(path)
@@ -327,7 +327,7 @@ class TestClientControllerReconnection(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(ctrl._reconnecting)
 
     async def test_all_servers_tried_circularly(self):
-        """2 servers × 2 retries = 4 connect() calls before giving up."""
+        """2 debug_fallback_servers × 2 retries = 4 connect() calls before giving up."""
         ctrl = self._make_ctrl(["S1:5000", "S2:5001"], max_retries=2)
         calls: list = []
 
