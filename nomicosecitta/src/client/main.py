@@ -17,6 +17,7 @@ from src.client.network_handler     import NetworkHandler
 from src.client.reconnection_manager import ReconnectionManager
 from src.client.message_handler     import MessageHandler
 from src.client.gui                 import GUIManager
+from src.client.gui.reconnection_overlay import ReconnectionOverlay 
 
 _ACTION_SETTINGS   = "settings"
 _ACTION_CATEGORIES = "categories"
@@ -39,6 +40,7 @@ class ClientController:
         self.root = tk.Tk()
         self.gui  = GUIManager(self.root)
         self._wire_gui_callbacks()
+        self.overlay = ReconnectionOverlay(self.root, self.gui.append_log)
 
         # Message handler
         self._msg_handler = MessageHandler(self)
@@ -138,61 +140,19 @@ class ClientController:
     # Disconnection & reconnection
 
     def handle_disconnection(self, reason: str):
-        if self._intentional_disconnect:
-            return
-        if self._reconnecting:
+        if self._intentional_disconnect or self._reconnecting:
             return
         print(f"[CONTROLLER] Unexpected disconnection: {reason}")
         self._reconnecting = True
-        self.root.after(0, lambda: self._show_reconnect_overlay(reason))
-
-    def _show_reconnect_overlay(self, reason: str):
-        self._overlay = tk.Toplevel(self.root)
-        self._overlay.title("Reconnecting…")
-        self._overlay.resizable(False, False)
-        self._overlay.grab_set()
-        self._overlay.protocol("WM_DELETE_WINDOW", lambda: None)
-        self._overlay.geometry("380x160")
-        self.root.update_idletasks()
-        x = self.root.winfo_x() + (self.root.winfo_width()  - 380) // 2
-        y = self.root.winfo_y() + (self.root.winfo_height() - 160) // 2
-        self._overlay.geometry(f"380x160+{x}+{y}")
-
-        tk.Label(self._overlay, text="⚠  Connection lost",
-                 font=("Segoe UI", 12, "bold")).pack(pady=(18, 4))
-        tk.Label(self._overlay, text=f"Reason: {reason}",
-                 font=("Segoe UI", 9), fg="#888").pack()
-        self._overlay_status = tk.StringVar(value="Connecting…")
-        tk.Label(self._overlay, textvariable=self._overlay_status,
-                 font=("Segoe UI", 10), fg="#2b6cb0", wraplength=340).pack(pady=(12, 0))
-        self._overlay.update()
-
+        self.root.after(0, lambda: self.overlay.show(reason))
         asyncio.run_coroutine_threadsafe(self._async_reconnect(), self.loop)
-
-    def _update_overlay(self, msg: str):
-        try:
-            self._overlay_status.set(msg)
-            self._overlay.update_idletasks()
-        except Exception:
-            pass
-        try:
-            self.gui.append_log(f"[⟳] {msg}")
-        except Exception:
-            pass
-
-    def _close_overlay(self):
-        try:
-            self._overlay.grab_release()
-            self._overlay.destroy()
-        except Exception:
-            pass
 
     async def _async_reconnect(self):
         new_handler = await self.reconnection_manager.reconnect(
             network_factory=self._build_handler,
             username=self.username,
             p2p_port=self.p2p_port,
-            on_status=lambda m: self.root.after(0, lambda msg=m: self._update_overlay(msg)),
+            on_status=lambda m: self.root.after(0, lambda msg=m: self.overlay.update_status(msg)),
         )
         self._reconnecting = False
 
@@ -216,13 +176,13 @@ class ClientController:
             self.root.after(0, self._on_reconnection_failed)
 
     def _on_reconnection_success(self, host: str, port: int):
-        self._close_overlay()
+        self.overlay.close()
         info = f"Reconnected to {host}:{port}"
         self.gui.append_log(f"[✓] {info}")
         self.gui.update_game_status(info)
 
     def _on_reconnection_failed(self):
-        self._close_overlay()
+        self.overlay.close()
         messagebox.showwarning(
             "Connection Lost",
             "Could not reconnect to any server.\n\n"
