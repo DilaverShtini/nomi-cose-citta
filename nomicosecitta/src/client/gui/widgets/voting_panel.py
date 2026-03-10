@@ -47,8 +47,9 @@ class VotingPanel:
             w.destroy()
 
         for category, users_words in words_to_vote.items():
+            cat_font = (theme.FONT_LABEL[0] if isinstance(theme.FONT_LABEL, tuple) else "Helvetica", 12, "bold") 
             tk.Label(self._frame, text=category.upper(),
-                     font=theme.FONT_LABEL,
+                     font=cat_font,
                      bg=theme.BG_PAGE, fg=theme.INK).pack(pady=(15, 5))
             for target_user, word in users_words.items():
                 self._peer_votes_data[(category, target_user)] = {}
@@ -88,22 +89,24 @@ class VotingPanel:
 
     def _build_answer_row(self, category: str, target_user: str, word: str):
         row = tk.Frame(self._frame, bg=theme.BG_PAGE)
-        row.pack(fill="x", padx=theme.PAD_LG, pady=2)
+        row.pack(fill="x", padx=4, pady=2)
         row.columnconfigure(0, weight=1)
 
         display = "YOU" if target_user == self._my_username else target_user
-        tk.Label(row, text=f"{display}:  {word}",
-                 font=theme.FONT_BODY, bg=theme.BG_PAGE, fg=theme.INK,
-                 anchor="w").grid(row=0, column=0, sticky="ew",
-                                  padx=(0, theme.PAD_SM))
+        word_label = tk.Label(row, text=f"{display}:  {word}",
+                              font=theme.FONT_BODY, bg=theme.BG_PAGE, fg=theme.INK,
+                              anchor="w", justify="left", wraplength=180)
+        word_label.grid(row=0, column=0, sticky="ew", padx=(0, 2), pady=2)
+        base_font = ("Helvetica", 8)
+        counter_font = ("Helvetica", 9, "bold")
 
         if target_user != self._my_username:
-            btn_yes = tk.Button(row, text="Valid",   width=8)
-            btn_no  = tk.Button(row, text="Invalid", width=8)
+            btn_yes = tk.Button(row, text="Valid", width=5, font=base_font)
+            btn_no  = tk.Button(row, text="Invalid", width=5, font=base_font)
             theme.style_button(btn_yes, variant="ghost")
             theme.style_button(btn_no,  variant="ghost")
-            btn_yes.grid(row=0, column=1, padx=4)
-            btn_no.grid( row=0, column=2, padx=4)
+            btn_yes.grid(row=0, column=1, padx=2, sticky="ns")
+            btn_no.grid( row=0, column=2, padx=2, sticky="ns")
             btn_yes.configure(
                 command=lambda c=category, t=target_user, y=btn_yes, n=btn_no:
                     self._cast_vote(t, c, True, y, n))
@@ -113,25 +116,22 @@ class VotingPanel:
             self._vote_buttons[(category, target_user)] = {
                 "yes": btn_yes, "no": btn_no}
         else:
-            tk.Label(row, bg=theme.BG_PAGE, width=8).grid(row=0, column=1, padx=4)
-            tk.Label(row, bg=theme.BG_PAGE, width=8).grid(row=0, column=2, padx=4)
+            tk.Label(row, bg=theme.BG_PAGE, width=5).grid(row=0, column=1, padx=2)
+            tk.Label(row, bg=theme.BG_PAGE, width=5).grid(row=0, column=2, padx=2)
 
-        counters = tk.Frame(row, bg=theme.BG_PAGE)
-        counters.grid(row=0, column=3, padx=(8, 0))
-
-        vbtn = tk.Button(counters, text="✅ 0", cursor="hand2",
+        vbtn = tk.Button(row, text="✅ 0", width=4, cursor="hand2",
                          command=lambda c=category, t=target_user:
                              self._show_vote_details(c, t))
         theme.style_button(vbtn, variant="ghost")
-        vbtn.configure(font=(theme.HAND_FONT, 10, "bold"), fg=theme.GREEN_INK)
-        vbtn.pack(side="left", padx=2)
+        vbtn.configure(font=counter_font, fg=theme.GREEN_INK)
+        vbtn.grid(row=0, column=3, padx=(8, 1), sticky="ns")
 
-        ibtn = tk.Button(counters, text="❌ 0", cursor="hand2",
+        ibtn = tk.Button(row, text="❌ 0", width=4, cursor="hand2",
                          command=lambda c=category, t=target_user:
                              self._show_vote_details(c, t, is_invalid=True))
         theme.style_button(ibtn, variant="ghost")
-        ibtn.configure(font=(theme.HAND_FONT, 10, "bold"), fg=theme.RED_INK)
-        ibtn.pack(side="left", padx=2)
+        ibtn.configure(font=counter_font, fg=theme.RED_INK)
+        ibtn.grid(row=0, column=4, padx=1, sticky="ns")
 
         self._vote_counters[(category, target_user)] = {
             "valid_btn": vbtn, "invalid_btn": ibtn}
