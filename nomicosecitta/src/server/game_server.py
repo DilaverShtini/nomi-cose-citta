@@ -8,7 +8,7 @@ from src.common.constants import (
 )
 from src.common.message import Message
 from src.server.client_handler import ClientHandler
-from src.server.game_session import GameSession
+from src.server.session.game_session import GameSession
 from src.server.state_manager import StateManager
 
 class GameServer:
