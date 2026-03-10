@@ -35,6 +35,8 @@ class StateManager:
                 "old_letters": list(session.old_letters),
                 "current_settings": session.current_settings,
                 "round_time": session.round_time,
+                "round_start_time": session.round_start_time,
+                "voting_start_time": getattr(session, 'voting_start_time', 0),
                 "round_time_passed": round_time_passed,
                 "current_voting_duration": getattr(session, 'current_voting_duration', 60),
                 "voting_time_passed": voting_time_passed,
