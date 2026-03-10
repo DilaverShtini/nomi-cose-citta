@@ -87,6 +87,7 @@ class GameServer:
                 del self.category_votes[handler.username]
         if was_admin:
             self._elect_new_admin()
+        self.save_state()
 
     def get_client_by_username(self, username: str) -> ClientHandler | None:
         return next((c for c in self.clients if c.username == username), None)
@@ -145,7 +146,6 @@ class GameServer:
 
     def set_category_votes(self, username: str, categories: list):
         self.category_votes[username] = list(categories)
-        self.save_state()
 
     def get_aggregated_categories(self, num_extra: int) -> list[str]:
         vote_count: dict[str, int] = {}

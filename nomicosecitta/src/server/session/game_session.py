@@ -89,7 +89,6 @@ class GameSession:
         self.received_answers[username] = words
         print(f"[SESSION] Answers from {username} "
               f"({len(self.received_answers)}/{self.server.get_active_count()})")
-        self.server.save_state()
 
         if len(self.received_answers) >= self.server.get_active_count():
             print("[SESSION] All players submitted — cancelling timer.")
