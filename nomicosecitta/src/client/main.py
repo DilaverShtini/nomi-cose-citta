@@ -18,6 +18,7 @@ from src.client.reconnection_manager import ReconnectionManager
 from src.client.message_handler     import MessageHandler
 from src.client.gui                 import GUIManager
 from src.client.gui.reconnection_overlay import ReconnectionOverlay 
+from src.client.p2p_broadcaster import P2PBroadcaster
 
 _ACTION_SETTINGS   = "settings"
 _ACTION_CATEGORIES = "categories"
@@ -41,6 +42,11 @@ class ClientController:
         self.gui  = GUIManager(self.root)
         self._wire_gui_callbacks()
         self.overlay = ReconnectionOverlay(self.root, self.gui.append_log)
+        self.p2p_broadcaster = P2PBroadcaster(
+            get_network=lambda: self.network,
+            get_peer_map=lambda: self.peer_map,
+            get_username=lambda: self.username
+        )
 
         # Message handler
         self._msg_handler = MessageHandler(self)
@@ -238,18 +244,16 @@ class ClientController:
         if category in self.my_votes:
             self.my_votes[category][target_user] = is_valid
         asyncio.run_coroutine_threadsafe(
-            self.broadcast_vote(target_user, category, is_valid), self.loop
+            self.p2p_broadcaster.broadcast_vote(target_user, category, is_valid), self.loop
         )
 
-    async def broadcast_vote(self, target_user: str, category: str, is_valid: bool):
-        vote_msg = Message(
-            type=MessageType.MSG_VOTE,
-            sender=self.username,
-            payload={"target": target_user, "category": category, "valid": is_valid},
+    def send_message(self, msg_text: str):
+        if not msg_text.strip():
+            return
+        self.gui.append_log(f"YOU: {msg_text}")
+        asyncio.run_coroutine_threadsafe(
+            self.p2p_broadcaster.broadcast_chat(msg_text), self.loop
         )
-        for peer_name, peer_address in self.peer_map.items():
-            if peer_name != self.username:
-                await self.network.send_p2p(peer_address, vote_msg)
 
     def submit_final_votes(self):
         print(f"[CONTROLLER] Submitting final votes: {self.my_votes}")
@@ -258,24 +262,6 @@ class ClientController:
             sender=self.username,
             payload={"votes": self.my_votes},
         ))
-
-    def send_message(self, msg_text: str):
-        if not msg_text.strip():
-            return
-        self.gui.append_log(f"YOU: {msg_text}")
-        chat_msg = Message(
-            type=MessageType.MSG_CHAT,
-            sender=self.username,
-            payload={"text": msg_text},
-        )
-        asyncio.run_coroutine_threadsafe(
-            self._broadcast_chat_p2p(chat_msg), self.loop
-        )
-
-    async def _broadcast_chat_p2p(self, chat_msg: Message):
-        for peer_name, peer_address in self.peer_map.items():
-            if peer_name != self.username:
-                await self.network.send_p2p(peer_address, chat_msg)
 
     # Internals
 
