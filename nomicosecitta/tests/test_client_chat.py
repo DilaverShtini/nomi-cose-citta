@@ -8,6 +8,7 @@ root_dir = os.path.dirname(current_dir)
 sys.path.append(root_dir)
 
 from src.client.main import ClientController
+from src.client.message_handler import MessageHandler
 from src.common.message import Message, MessageType
 
 class TestClientChat(unittest.IsolatedAsyncioTestCase):
@@ -39,7 +40,7 @@ class TestClientChat(unittest.IsolatedAsyncioTestCase):
             payload={"text": "Hello everyone"}
         )
         
-        await self.controller.broadcast_chat_p2p(test_message)
+        await self.controller._broadcast_chat_p2p(test_message)
         
         self.assertEqual(self.controller.network.send_p2p.call_count, 2)
         
@@ -60,7 +61,7 @@ class TestClientChat(unittest.IsolatedAsyncioTestCase):
     def test_send_message_updates_gui_and_broadcasts(self, mock_run_coroutine):
         self.controller.network.is_connected.return_value = True
 
-        with patch.object(self.controller, 'broadcast_chat_p2p') as mock_broadcast:
+        with patch.object(self.controller, '_broadcast_chat_p2p') as mock_broadcast:
 
             self.controller.send_message("Messaggio di test")
 
@@ -91,7 +92,8 @@ class TestClientChat(unittest.IsolatedAsyncioTestCase):
 
         self.controller.root.after = MagicMock(side_effect=fake_after)
 
-        self.controller.handle_incoming_message(incoming_msg)
+        msg_handler = MessageHandler(self.controller)
+        msg_handler.handle(incoming_msg)
 
         self.controller.gui.append_log.assert_called_once_with("Veri: Hello from Veri")
 
@@ -107,6 +109,7 @@ class TestClientChat(unittest.IsolatedAsyncioTestCase):
             payload={"peermap": fake_peer_map}
         )
 
-        self.controller.handle_incoming_message(incoming_msg)
+        msg_handler = MessageHandler(self.controller)
+        msg_handler.handle(incoming_msg)
 
         self.assertEqual(self.controller.peer_map, fake_peer_map)
