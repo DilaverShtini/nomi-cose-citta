@@ -9,7 +9,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.dirname(current_dir)
 sys.path.append(root_dir)
 
-from src.server.game_session import GameSession
+from src.server.session.game_session import GameSession
 from src.common.message import GameState
 
 class TestGameSession(unittest.IsolatedAsyncioTestCase):
@@ -92,7 +92,7 @@ class TestGameSession(unittest.IsolatedAsyncioTestCase):
         await self.session.receive_answers("AdminUser", {"Nomi": "Mario"})
         self.assertEqual(len(self.session.received_answers), 0)
 
-    def test_process_initial_validation(self):
+    def test_run_initial_validation(self):
         self.session.current_round = MagicMock()
         self.session.current_round.letter = "R"
         self.session.current_round.categories = ["Città"]
@@ -103,7 +103,7 @@ class TestGameSession(unittest.IsolatedAsyncioTestCase):
             "P3": {"Città": ""}
         }
         
-        self.session._process_initial_validation()
+        self.session._run_initial_validation()
         
         self.assertEqual(self.session.round_data["Città"]["P1"]["status"], "PENDING_VOTE")
         self.assertIn("P1", self.session.words_to_vote["Città"])
