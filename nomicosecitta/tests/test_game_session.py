@@ -128,23 +128,25 @@ class TestGameSession(unittest.IsolatedAsyncioTestCase):
 
     async def test_handle_player_disconnection_triggers_voting(self):
         self.session.state = GameState.WAITING_INPUT
-        self.mock_server.get_active_count.return_value = 2 
-        
-        self.mock_server.is_shutting_down = False 
+        self.mock_server.get_active_count.return_value = 2
+
+        self.mock_server.is_shutting_down = False
         self.session.current_round = MagicMock()
         self.session.current_round.letter = "A"
         self.session.current_round.categories = ["Nomi"]
-    
-        self.session._timer_task = MagicMock() 
-        self.session._timer_task.done.return_value = False
+
+        
+        self.session._timers.cancel_round_timer = MagicMock()
+
         self.session.received_answers = {
             "P1": {"Nomi": "Anna"},
             "P2": {"Nomi": "Alberto"}
         }
-        
+
         await self.session.handle_player_disconnection("P3")
+
         self.assertEqual(self.session.state, GameState.VOTING)
-        self.session._timer_task.cancel.assert_called_once()
+        self.session._timers.cancel_round_timer.assert_called_once()
 
     async def test_sync_reconnecting_client(self):
         self.session.state = GameState.VOTING

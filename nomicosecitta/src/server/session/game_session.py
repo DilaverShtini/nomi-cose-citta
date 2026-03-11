@@ -9,9 +9,10 @@ from src.common.constants import (
 )
 from src.common.message import Message, MessageType, GameState
 from src.server.round_manager import RoundManager
-from nomicosecitta.src.server.session.answer_validator import AnswerValidator
-from nomicosecitta.src.server.session.voting_aggregator import VotingAggregator
-from nomicosecitta.src.server.session.scoring_engine import ScoringEngine
+from src.server.session.answer_validator import AnswerValidator
+from src.server.session.voting_aggregator import VotingAggregator
+from src.server.session.scoring_engine import ScoringEngine
+from src.server.session.timer_manager import TimerManager
 
 
 class GameSession:
@@ -25,28 +26,28 @@ class GameSession:
         self._validator  = AnswerValidator()
         self._aggregator = VotingAggregator()
         self._scorer     = ScoringEngine()
+        self._timers     = TimerManager()
 
-        self.current_round: RoundManager | None = None
-        self.received_answers: dict[str, dict] = {}
-        self.received_votes:   dict[str, dict] = {}
-        self.round_data:       dict[str, dict] = {}
-        self.words_to_vote:    dict[str, dict] = {}
+        self.current_round:    RoundManager | None = None
+        self.received_answers: dict[str, dict]     = {}
+        self.received_votes:   dict[str, dict]     = {}
+        self.round_data:       dict[str, dict]     = {}
+        self.words_to_vote:    dict[str, dict]     = {}
 
-        self.state = GameState.LOBBY
-        self.scores:                dict[str, int] = {}
-        self.old_letters:           set[str]       = set()
-        self.current_round_number:  int            = 0
-        self.current_settings:      dict           = {}
-        self.round_time:            int            = 60
-        self.round_start_time:      float          = 0.0
-        self.current_voting_duration: int          = VOTING_SMALL_DURATION
-        self.voting_start_time:     float          = 0.0
+        self.state                   = GameState.LOBBY
+        self.scores:                 dict[str, int] = {}
+        self.old_letters:            set[str]       = set()
+        self.current_round_number:   int            = 0
+        self.current_settings:       dict           = {}
+        self.round_time:             int            = 60
+        self.round_start_time:       float          = 0.0
+        self.current_voting_duration: int           = VOTING_SMALL_DURATION
+        self.voting_start_time:      float          = 0.0
 
-        self._timer_task:        asyncio.Task | None = None
-        self._voting_timer_task: asyncio.Task | None = None
+    #  Public API
 
     async def start_game(self, request_username: str, settings: dict):
-        """Handle game start request from admin."""
+        """Gestisce la richiesta di avvio partita inviata dall'admin."""
         if self.state != GameState.LOBBY:
             return False, "Game already in progress"
         if request_username != self.server.get_admin():
@@ -92,8 +93,7 @@ class GameSession:
 
         if len(self.received_answers) >= self.server.get_active_count():
             print("[SESSION] All players submitted — cancelling timer.")
-            if self._timer_task and not self._timer_task.done():
-                self._timer_task.cancel()
+            self._timers.cancel_round_timer()
             self._run_initial_validation()
             await self._start_voting_phase()
 
@@ -109,8 +109,7 @@ class GameSession:
 
         if len(self.received_votes) >= self.server.get_active_count():
             print("[SESSION] All players voted — finalising round.")
-            if self._voting_timer_task and not self._voting_timer_task.done():
-                self._voting_timer_task.cancel()
+            self._timers.cancel_voting_timer()
             await self._finalise_round()
 
     async def handle_player_disconnection(self, username: str):
@@ -125,15 +124,13 @@ class GameSession:
 
         if self.state == GameState.WAITING_INPUT:
             if len(self.received_answers) >= active_count:
-                if self._timer_task and not self._timer_task.done():
-                    self._timer_task.cancel()
+                self._timers.cancel_round_timer()
                 self._run_initial_validation()
                 await self._start_voting_phase()
 
         elif self.state == GameState.VOTING:
             if len(self.received_votes) >= active_count:
-                if self._voting_timer_task and not self._voting_timer_task.done():
-                    self._voting_timer_task.cancel()
+                self._timers.cancel_voting_timer()
                 await self._finalise_round()
 
     async def sync_reconnecting_client(self, client_handler):
@@ -188,24 +185,21 @@ class GameSession:
         self.scores.clear()
         self.current_round_number = 0
         self._reset_round_state()
-
-        if self._timer_task and not self._timer_task.done():
-            self._timer_task.cancel()
-        self._timer_task = None
-
+        self._timers.cancel_all()
         self.server.reset_category_votes()
 
     def restore_from_state(self, session_data: dict):
         print("[SESSION] Restoring state from snapshot…")
 
         state_name = session_data.get("state", "LOBBY")
-        self.state                  = GameState[state_name]
-        self.current_round_number   = session_data.get("round_number", 0)
-        self.scores                 = session_data.get("scores", {})
-        self.old_letters            = set(session_data.get("old_letters", []))
-        self.round_time             = session_data.get("round_time", 60)
-        self.current_settings       = session_data.get("current_settings", {})
-        self.current_voting_duration = session_data.get("current_voting_duration", VOTING_SMALL_DURATION)
+        self.state                   = GameState[state_name]
+        self.current_round_number    = session_data.get("round_number", 0)
+        self.scores                  = session_data.get("scores", {})
+        self.old_letters             = set(session_data.get("old_letters", []))
+        self.round_time              = session_data.get("round_time", 60)
+        self.current_settings        = session_data.get("current_settings", {})
+        self.current_voting_duration = session_data.get(
+            "current_voting_duration", VOTING_SMALL_DURATION)
 
         round_info = session_data.get("current_round")
         if round_info:
@@ -218,48 +212,47 @@ class GameSession:
         self.round_data       = session_data.get("round_data",       {})
         self.words_to_vote    = session_data.get("words_to_vote",    {})
 
+        DOWNTIME_COMPENSATION = 5.0
         now = time.time()
-        DOWNTIME_COMPENSATION = 5.0 
-        
+
         saved_round_start = session_data.get("round_start_time", 0)
         if saved_round_start > 0:
             self.round_start_time = saved_round_start + DOWNTIME_COMPENSATION
         else:
             self.round_start_time = now - session_data.get("round_time_passed", 0)
 
-        self.current_voting_duration = session_data.get("current_voting_duration", 60)
-        
         saved_voting_start = session_data.get("voting_start_time", 0)
         if saved_voting_start > 0:
             self.voting_start_time = saved_voting_start + DOWNTIME_COMPENSATION
         else:
             self.voting_start_time = now - session_data.get("voting_time_passed", 0)
 
+        round_remaining  = 0.0
+        voting_remaining = 0.0
+
         if self.state == GameState.WAITING_INPUT:
             passed = now - self.round_start_time
-            remaining = max(0, self.round_time - passed)
-            remaining = min(remaining, self.round_time)
-            
-            print(f"[RECOVERY] Ripristino timer Round: mancano {remaining:.1f} secondi.")
-            
-            async def resume_round_timer(wait_time):
-                await asyncio.sleep(wait_time)
-                await self._end_round()
-            self._timer_task = asyncio.create_task(resume_round_timer(remaining))
+            round_remaining = max(
+                0.0, min(float(self.round_time) - passed, float(self.round_time))
+            )
 
         elif self.state == GameState.VOTING:
             passed = now - self.voting_start_time
-            remaining = max(0, self.current_voting_duration - passed)
-            remaining = min(remaining, self.current_voting_duration)
-            print(f"[RECOVERY] Ripristino timer Voti: mancano {remaining:.1f} secondi.")
-            
-            async def resume_voting_timer(wait_time):
-                await asyncio.sleep(wait_time)
-                if self.state == GameState.VOTING:
-                    await self._finalise_round()
-            self._voting_timer_task = asyncio.create_task(resume_voting_timer(remaining))
-            
-        print(f"[RECOVERY] Sessione ripristinata. Stato attuale: {self.state.name}")
+            voting_remaining = max(
+                0.0,
+                min(float(self.current_voting_duration) - passed,
+                    float(self.current_voting_duration)),
+            )
+
+        self._timers.restore(
+            state_name       = self.state.name,
+            round_remaining  = round_remaining,
+            voting_remaining = voting_remaining,
+            round_callback   = self._end_round,
+            voting_callback  = self._on_voting_timeout,
+        )
+
+        print(f"[SESSION] Session restored. Status: {self.state.name}")
 
     async def _launch_round(self, settings: dict):
         self.state = GameState.WAITING_INPUT
@@ -268,35 +261,37 @@ class GameSession:
         mode      = settings.get("mode", GAME_MODE_CLASSIC)
         num_extra = int(settings.get("num_extra_categories", 1))
 
-        aggregated = settings.get("selected_categories") or \
-                     self.server.get_aggregated_categories(num_extra)
+        aggregated = (
+            settings.get("selected_categories")
+            or self.server.get_aggregated_categories(num_extra)
+        )
         self.current_settings["selected_categories"] = aggregated
 
         if mode == GAME_MODE_CLASSIC:
             final_categories = ["Name", "Things", "Cities"]
         elif mode == GAME_MODE_CLASSIC_PLUS:
             final_categories = ["Name", "Things", "Cities"] + aggregated
-        elif mode == GAME_MODE_FREE: 
+        elif mode == GAME_MODE_FREE:
             final_categories = aggregated
 
-        settings_for_round = {**settings, "selected_categories": (
-            aggregated if mode != GAME_MODE_CLASSIC else []
-        )}
+        settings_for_round = {
+            **settings,
+            "selected_categories": aggregated if mode != GAME_MODE_CLASSIC else [],
+        }
         self.server.reset_category_votes()
 
         self.current_round            = RoundManager(settings_for_round, self.old_letters)
         self.current_round.categories = final_categories
         self.old_letters.add(self.current_round.letter)
-        self.round_time             = int(settings.get("round_time", 60))
-        self.current_round_number  += 1
-        self.round_start_time       = time.time()
+        self.round_time            = int(settings.get("round_time", 60))
+        self.current_round_number += 1
+        self.round_start_time      = time.time()
         self.server.save_state()
 
         print(f"[SESSION] Round {self.current_round_number}: "
               f"letter={self.current_round.letter}, categories={final_categories}")
 
-
-        self._timer_task = asyncio.create_task(
+        self._timers.start_round_timer(
             self.current_round.start_timer(callback_on_end=self._end_round)
         )
 
@@ -321,9 +316,9 @@ class GameSession:
 
     def _get_voting_duration(self) -> int:
         n = len(self.current_round.categories)
-        if n <= 3:   return VOTING_SMALL_DURATION
-        if n <= 5:   return VOTING_MEDIUM_DURATION
-        if n <= 7:   return VOTING_LONG_DURATION
+        if n <= 3: return VOTING_SMALL_DURATION
+        if n <= 5: return VOTING_MEDIUM_DURATION
+        if n <= 7: return VOTING_LONG_DURATION
         return VOTING_LONG_LONG_DURATION
 
     async def _start_voting_phase(self):
@@ -340,16 +335,14 @@ class GameSession:
             },
         ))
         self.server.save_state()
-        self._voting_timer_task = asyncio.create_task(self._voting_timeout())
+        self._timers.start_voting_timer(
+            self.current_voting_duration, self._on_voting_timeout
+        )
 
-    async def _voting_timeout(self):
-        try:
-            await asyncio.sleep(self.current_voting_duration)
-            if self.state == GameState.VOTING:
-                print("[SESSION] Voting timer expired.")
-                await self._finalise_round()
-        except asyncio.CancelledError:
-            pass
+    async def _on_voting_timeout(self):
+        if self.state == GameState.VOTING:
+            print("[SESSION] Voting timer expired.")
+            await self._finalise_round()
 
     async def _end_round(self):
         if self.state != GameState.WAITING_INPUT:
@@ -434,27 +427,3 @@ class GameSession:
             print("[SESSION] No players remaining — resetting to LOBBY.")
             self.reset()
             self.server.save_state()
-
-    def _restore_timers(self, session_data: dict, now: float):
-        if self.state == GameState.WAITING_INPUT:
-            passed    = session_data.get("round_time_passed", 0)
-            remaining = max(0, self.round_time - passed)
-            print(f"[SESSION] Resuming round timer: {remaining:.1f}s left.")
-
-            async def _resume_round(t):
-                await asyncio.sleep(t)
-                await self._end_round()
-
-            self._timer_task = asyncio.create_task(_resume_round(remaining))
-
-        elif self.state == GameState.VOTING:
-            passed    = session_data.get("voting_time_passed", 0)
-            remaining = max(0, self.current_voting_duration - passed)
-            print(f"[SESSION] Resuming voting timer: {remaining:.1f}s left.")
-
-            async def _resume_voting(t):
-                await asyncio.sleep(t)
-                if self.state == GameState.VOTING:
-                    await self._finalise_round()
-
-            self._voting_timer_task = asyncio.create_task(_resume_voting(remaining))
