@@ -93,6 +93,10 @@ class MessageHandler:
         round_scores  = msg.payload.get("round_scores", {})
         global_scores = msg.payload.get("scores", {})
         round_number  = msg.payload.get("round_number", "?")
+        is_recovery   = msg.payload.get("is_recovery", False)
+
+        if is_recovery:
+            return
 
         self._after(lambda: c.gui.update_scoreboard(global_scores, round_scores))
 

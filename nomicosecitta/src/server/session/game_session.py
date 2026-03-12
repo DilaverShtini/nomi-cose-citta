@@ -160,10 +160,11 @@ class GameSession:
                 sender="SERVER",
                 payload={
                     "round_scores": {},
-                    "scores":       dict(self.scores),
-                    "round_data":   {},
+                    "scores": dict(self.scores),
+                    "round_data": {},
                     "round_number": self.current_round_number,
-                },
+                    "is_recovery": True
+                }
             ).to_bytes())
 
         if self.state == GameState.VOTING:
@@ -394,6 +395,7 @@ class GameSession:
                 "scores":       dict(self.scores),
                 "round_data":   self.round_data,
                 "round_number": self.current_round_number,
+                "is_recovery": False
             },
         ))
 
