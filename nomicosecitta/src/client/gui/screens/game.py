@@ -311,7 +311,7 @@ class GameScreen(BaseScreen):
     # Round lifecycle
 
     def start_round(self, letter: str, categories: list,
-                    round_number: int, duration: int):
+                    round_number: int, duration: int, is_recovery: bool = False):
         if hasattr(self, '_timer_job'):
             self.frame.after_cancel(self._timer_job)
             del self._timer_job
@@ -320,18 +320,25 @@ class GameScreen(BaseScreen):
         self.update_letter(letter)
         self.update_categories(categories)
         self.update_round_info(round_number)
-        self.clear_answers()
+
+        if not is_recovery:
+            self.clear_answers()
+        
         self.set_inputs_enabled(True)
         self._timer.reset()
         self._focus_first_entry()
         self._local_duration = duration
 
-        if round_number == 1:
+        if round_number == 1 and not is_recovery:
             self.update_scoreboard({})
             if hasattr(self, '_chat') and hasattr(self._chat, 'clear'):
                 self._chat.clear()
 
-        self.update_status("Write your answers!")
+        if is_recovery:
+            self.update_status("Connection restored. Resume typing.")
+        else:
+            self.update_status("Write your answers!")
+
         self._run_local_timer()
 
     def _run_local_timer(self):
@@ -367,11 +374,16 @@ class GameScreen(BaseScreen):
 
     # Voting phase
 
-    def build_voting_ui(self, words_to_vote: dict, my_username: str, duration: int = 0):
+    def build_voting_ui(self, words_to_vote: dict, my_username: str, duration: int = 0, is_recovery: bool = False):
         """Hand off voting UI construction to VotingPanel."""
         if hasattr(self, '_timer_job'):
             self.frame.after_cancel(self._timer_job)
-        self.update_status("Voting phase: vote and click Ready.")
+
+        if is_recovery:
+            self.update_status("Connessione ristabilita! Continua a votare.")
+        else:
+            self.update_status("Voting phase: vote and click Ready.")
+
         self._voting_panel.build(words_to_vote, my_username, duration)
 
     def update_peer_vote(self, target_user: str, category: str,

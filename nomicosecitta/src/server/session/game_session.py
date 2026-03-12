@@ -151,6 +151,7 @@ class GameSession:
                     "categories":   self.current_round.categories,
                     "duration":     time_left,
                     "round_number": self.current_round_number,
+                    "is_recovery":  True,
                 },
             ).to_bytes())
 
@@ -163,7 +164,7 @@ class GameSession:
                     "scores": dict(self.scores),
                     "round_data": {},
                     "round_number": self.current_round_number,
-                    "is_recovery": True
+                    "is_recovery": True,
                 }
             ).to_bytes())
 
@@ -176,6 +177,7 @@ class GameSession:
                 payload={
                     "words_to_vote": self.words_to_vote,
                     "duration":      time_left,
+                    "is_recovery":  True
                 },
             ).to_bytes())
 

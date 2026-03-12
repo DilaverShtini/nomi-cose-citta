@@ -72,7 +72,8 @@ class MessageHandler:
         categories   = msg.payload.get("categories", [])
         duration     = msg.payload.get("duration", 60)
         round_number = msg.payload.get("round_number", 1)
-        self._after(lambda: c.gui.start_round(letter, categories, round_number, duration))
+        is_recovery  = msg.payload.get("is_recovery", False)
+        self._after(lambda: c.gui.start_round(letter, categories, round_number, duration, is_recovery))
 
     def _on_round_end(self, msg: Message) -> None:
         c = self._ctrl
@@ -81,12 +82,13 @@ class MessageHandler:
         c.submit_answers()
 
     def _on_voting_start(self, msg: Message) -> None:
-        c             = self._ctrl
-        words_to_vote = msg.payload.get("words_to_vote", {})
-        c.my_votes    = {cat: {} for cat in words_to_vote}
-        duration      = msg.payload.get("duration", 180)
+        c               = self._ctrl
+        words_to_vote   = msg.payload.get("words_to_vote", {})
+        c.my_votes      = {cat: {} for cat in words_to_vote}
+        duration        = msg.payload.get("duration", 180)
+        is_recovery     = msg.payload.get("is_recovery", False)
         print(f"[MSG_HANDLER] Voting phase")
-        self._after(lambda: c.gui.show_voting_phase(words_to_vote, c.username, duration))
+        self._after(lambda: c.gui.show_voting_phase(words_to_vote, c.username, duration, is_recovery))
 
     def _on_score_update(self, msg: Message) -> None:
         c             = self._ctrl
