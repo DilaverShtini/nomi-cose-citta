@@ -57,5 +57,9 @@ class TestGameServer(unittest.IsolatedAsyncioTestCase):
         empty_server.set_admin("Veri")
         self.assertEqual(empty_server.get_admin(), "Veri")
 
+        mock_client = MagicMock()
+        mock_client.username = "Veri"
+        empty_server.clients.append(mock_client)
+
         empty_server.set_admin("Giovanni")
         self.assertEqual(empty_server.get_admin(), "Veri")

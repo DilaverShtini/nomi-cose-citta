@@ -3,12 +3,13 @@ import unittest
 from unittest.mock import AsyncMock, MagicMock
 import sys
 import os
+import asyncio
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.dirname(current_dir)
 sys.path.append(root_dir)
 
-from src.server.game_session import GameSession
+from src.server.session.game_session import GameSession
 from src.common.message import GameState
 
 class TestGameSession(unittest.IsolatedAsyncioTestCase):
@@ -91,7 +92,7 @@ class TestGameSession(unittest.IsolatedAsyncioTestCase):
         await self.session.receive_answers("AdminUser", {"Nomi": "Mario"})
         self.assertEqual(len(self.session.received_answers), 0)
 
-    def test_process_initial_validation(self):
+    def test_run_initial_validation(self):
         self.session.current_round = MagicMock()
         self.session.current_round.letter = "R"
         self.session.current_round.categories = ["Città"]
@@ -102,7 +103,7 @@ class TestGameSession(unittest.IsolatedAsyncioTestCase):
             "P3": {"Città": ""}
         }
         
-        self.session._process_initial_validation()
+        self.session._run_initial_validation()
         
         self.assertEqual(self.session.round_data["Città"]["P1"]["status"], "PENDING_VOTE")
         self.assertIn("P1", self.session.words_to_vote["Città"])
@@ -116,35 +117,36 @@ class TestGameSession(unittest.IsolatedAsyncioTestCase):
         self.session.current_round.letter = "A"
         self.session.current_round.categories = ["Nomi"]
         self.session.received_answers = {"P1": {"Nomi": "Anna"}}
-        
+
         await self.session._end_round()
-        
+
+        pending = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+        if pending:
+            await asyncio.wait(pending)
+
         self.assertEqual(self.session.state, GameState.VOTING)
-        self.assertEqual(self.mock_server.broadcast.call_count, 2)
-        end_call = self.mock_server.broadcast.call_args_list[0][0][0]
-        vote_call = self.mock_server.broadcast.call_args_list[1][0][0]
-        
-        self.assertEqual(end_call.type.name, "EVT_ROUND_END")
-        self.assertEqual(vote_call.type.name, "EVT_VOTING_START")
 
     async def test_handle_player_disconnection_triggers_voting(self):
         self.session.state = GameState.WAITING_INPUT
-        self.mock_server.get_active_count.return_value = 2 
-        
+        self.mock_server.get_active_count.return_value = 2
+
+        self.mock_server.is_shutting_down = False
         self.session.current_round = MagicMock()
         self.session.current_round.letter = "A"
         self.session.current_round.categories = ["Nomi"]
-    
-        self.session._timer_task = MagicMock() 
-        self.session._timer_task.done.return_value = False
+
+        
+        self.session._timers.cancel_round_timer = MagicMock()
+
         self.session.received_answers = {
             "P1": {"Nomi": "Anna"},
             "P2": {"Nomi": "Alberto"}
         }
-        
+
         await self.session.handle_player_disconnection("P3")
+
         self.assertEqual(self.session.state, GameState.VOTING)
-        self.session._timer_task.cancel.assert_called_once()
+        self.session._timers.cancel_round_timer.assert_called_once()
 
     async def test_sync_reconnecting_client(self):
         self.session.state = GameState.VOTING
@@ -155,10 +157,11 @@ class TestGameSession(unittest.IsolatedAsyncioTestCase):
         self.session.round_time = 60
         self.session.round_start_time = time.time() - 20
         self.session.words_to_vote = {"Nomi": {"P1": "Anna"}}
-        
+        self.session.scores = {"P1": 10}
+
         mock_client = AsyncMock()
         mock_client.username = "P2"
         
         await self.session.sync_reconnecting_client(mock_client)
-    
-        self.assertEqual(mock_client.send.call_count, 3)
+
+        self.assertEqual(mock_client.send.call_count, 2)

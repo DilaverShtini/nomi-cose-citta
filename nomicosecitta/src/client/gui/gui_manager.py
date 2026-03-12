@@ -78,9 +78,9 @@ class GUIManager:
     def show_game(self):
         self.navigate_to(Screen.GAME)
 
-    def show_voting_phase(self, words_to_vote: dict, my_username: str, duration: int):
+    def show_voting_phase(self, words_to_vote: dict, my_username: str, duration: int, is_recovery: bool = False):
         self.navigate_to(Screen.GAME)
-        self.game.build_voting_ui(words_to_vote, my_username, duration)
+        self.game.build_voting_ui(words_to_vote, my_username, duration, is_recovery)
 
     # Screen properties
 
@@ -142,8 +142,8 @@ class GUIManager:
     def set_inputs_enabled(self, enabled: bool):
         self.game.set_inputs_enabled(enabled)
 
-    def start_round(self, letter: str, categories: list, round_number: int, duration: int):
-        self.game.start_round(letter, categories, round_number, duration)
+    def start_round(self, letter: str, categories: list, round_number: int, duration: int, is_recovery: bool = False):
+        self.game.start_round(letter, categories, round_number, duration, is_recovery)
 
     def update_peer_vote(self, target_user: str, category: str, voter: str, is_valid: bool):
         if self._current_screen == Screen.GAME:
@@ -154,6 +154,10 @@ class GUIManager:
 
     def update_scoreboard(self, scores: dict, round_scores: dict = None):
         self.game.update_scoreboard(scores, round_scores)
+
+    def pause_timers(self):
+        if self._current_screen == Screen.GAME:
+            self.game.pause_timers()
 
     @property
     def players_list(self):

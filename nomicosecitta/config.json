@@ -1,0 +1,15 @@
+{
+  "_comment": "Nomi Cose Città — client configuration.",
+  "reconnection": {
+    "max_retries_per_server": 6,
+    "retry_delay_seconds": 2.0
+  },
+  "discovery": {
+    "enabled": true,
+    "udp_port": 50000,
+    "timeout_seconds": 3.0
+  },
+  "debug_fallback_servers": [
+    "127.0.0.1:5000"
+  ]
+}

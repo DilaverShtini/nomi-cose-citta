@@ -31,6 +31,7 @@ class TestNetworkHandler(unittest.IsolatedAsyncioTestCase):
     async def test_connect_success(self, mock_open_connection):
         """Testa la connessione riuscita al server."""
         mock_reader, mock_writer = AsyncMock(), AsyncMock()
+        mock_writer.close = MagicMock()
         mock_open_connection.return_value = (mock_reader, mock_writer)
 
         result = await self.handler.connect()
@@ -59,6 +60,8 @@ class TestNetworkHandler(unittest.IsolatedAsyncioTestCase):
     @patch('asyncio.open_connection')
     async def test_send_success(self, mock_open_connection):
         mock_reader, mock_writer = AsyncMock(), AsyncMock()
+        mock_writer.write = MagicMock()
+        mock_writer.close = MagicMock()
         mock_open_connection.return_value = (mock_reader, mock_writer)
         await self.handler.connect()
 
@@ -74,6 +77,7 @@ class TestNetworkHandler(unittest.IsolatedAsyncioTestCase):
     @patch('asyncio.open_connection')
     async def test_receive_loop_valid_message(self, mock_open_connection):
         mock_reader, mock_writer = AsyncMock(), AsyncMock()
+        mock_writer.close = MagicMock()
         mock_open_connection.return_value = (mock_reader, mock_writer)
         
         msg = Message(type=MessageType.MSG_CHAT, sender="P1", payload={})
@@ -106,6 +110,8 @@ class TestNetworkHandler(unittest.IsolatedAsyncioTestCase):
     @patch('asyncio.open_connection')
     async def test_send_p2p_success(self, mock_open_connection):
         mock_reader, mock_writer = AsyncMock(), AsyncMock()
+        mock_writer.write = MagicMock()
+        mock_writer.close = MagicMock()
         mock_open_connection.return_value = (mock_reader, mock_writer)
 
         msg = Message(type=MessageType.MSG_VOTE, sender="P1", payload={})
@@ -120,7 +126,8 @@ class TestNetworkHandler(unittest.IsolatedAsyncioTestCase):
 
     async def test_handle_p2p_connection(self):
         mock_reader, mock_writer = AsyncMock(), AsyncMock()
-        mock_writer.get_extra_info.return_value = "192.168.1.10:8000"
+        mock_writer.close = MagicMock()
+        mock_writer.get_extra_info = MagicMock(return_value="192.168.1.10:8000")
         
         msg = Message(type=MessageType.MSG_VOTE, sender="P2", payload={})
         mock_reader.readline.return_value = (msg.to_json() + "\n").encode(ENCODING)

@@ -33,13 +33,7 @@ class TestClientChat(unittest.IsolatedAsyncioTestCase):
             self.controller.loop.close()
 
     async def test_broadcast_chat_sends_to_peers_only(self):
-        test_message = Message(
-            type=MessageType.MSG_CHAT, 
-            sender="Veri", 
-            payload={"text": "Hello everyone"}
-        )
-        
-        await self.controller.broadcast_chat_p2p(test_message)
+        await self.controller.p2p_broadcaster.broadcast_chat("Hello everyone")
         
         self.assertEqual(self.controller.network.send_p2p.call_count, 2)
         
@@ -60,19 +54,13 @@ class TestClientChat(unittest.IsolatedAsyncioTestCase):
     def test_send_message_updates_gui_and_broadcasts(self, mock_run_coroutine):
         self.controller.network.is_connected.return_value = True
 
-        with patch.object(self.controller, 'broadcast_chat_p2p') as mock_broadcast:
+        with patch.object(self.controller.p2p_broadcaster, 'broadcast_chat') as mock_broadcast:
 
-            self.controller.send_message("Messaggio di test")
+            self.controller.send_message("Test message")
 
-            self.controller.gui.append_log.assert_called_once_with("YOU: Messaggio di test")
+            self.controller.gui.append_log.assert_called_once_with("YOU: Test message")
             
-            mock_broadcast.assert_called_once()
-
-            sent_msg = mock_broadcast.call_args[0][0]
-            
-            self.assertEqual(sent_msg.type, MessageType.MSG_CHAT)
-            self.assertEqual(sent_msg.payload["text"], "Messaggio di test")
-
+            mock_broadcast.assert_called_once_with("Test message")
             mock_run_coroutine.assert_called_once()
 
             coroutine_generata = mock_run_coroutine.call_args[0][0]
@@ -91,7 +79,7 @@ class TestClientChat(unittest.IsolatedAsyncioTestCase):
 
         self.controller.root.after = MagicMock(side_effect=fake_after)
 
-        self.controller.handle_incoming_message(incoming_msg)
+        self.controller._msg_handler.handle(incoming_msg)
 
         self.controller.gui.append_log.assert_called_once_with("Veri: Hello from Veri")
 
@@ -107,6 +95,6 @@ class TestClientChat(unittest.IsolatedAsyncioTestCase):
             payload={"peermap": fake_peer_map}
         )
 
-        self.controller.handle_incoming_message(incoming_msg)
+        self.controller._msg_handler.handle(incoming_msg)
 
         self.assertEqual(self.controller.peer_map, fake_peer_map)

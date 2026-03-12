@@ -1,5 +1,5 @@
 # Default Network Configuration
-DEFAULT_SERVER_HOST = '127.0.0.1'
+DEFAULT_SERVER_HOST = '0.0.0.0'
 DEFAULT_SERVER_PORT = 5000
 BUFFER_SIZE = 1024
 ENCODING = 'utf-8'
@@ -8,6 +8,11 @@ ENCODING = 'utf-8'
 import os
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SHARED_DATA_PATH = os.path.join(BASE_DIR, "shared_data")
+
+# Replication Configuration
+HEARTBEAT_FILE = os.path.join(SHARED_DATA_PATH, "heartbeat.json")
+HEARTBEAT_INTERVAL = 2 #write heartbeat every 2 seconds
+HEARTBEAT_TIMEOUT = 6 
 
 # Game Configuration
 DEFAULT_CATEGORIES = ["Name", "Things", "City"]

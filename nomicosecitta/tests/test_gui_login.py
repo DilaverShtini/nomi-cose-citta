@@ -12,8 +12,12 @@ from src.client.gui.screens.login import LoginScreen
 
 class TkinterGUITestCase(unittest.TestCase):
     def setUp(self):
-        self.root = tk.Tk()
-        self.root.withdraw() 
+        try:
+            self.root = tk.Tk()
+            self.root.withdraw() 
+        except tk.TclError:
+            self.skipTest("Tkinter not available.")
+            return
         self.mock_manager = MagicMock()
         self.mock_manager.on_connect = MagicMock()
 
@@ -45,7 +49,7 @@ class TestLoginScreen(TkinterGUITestCase):
         self.screen._handle_connect()
         self.root.update()
 
-        self.mock_manager.on_connect.assert_called_once_with("127.0.0.1", "Chiara")
+        self.mock_manager.on_connect.assert_called_once_with("0.0.0.0", "Chiara")
 
     @patch('src.client.gui.screens.login.messagebox.showerror')
     def test_login_flow_missing_data(self, mock_showerror):

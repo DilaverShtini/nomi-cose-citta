@@ -13,8 +13,12 @@ from src.common.constants import GAME_MODE_CLASSIC_PLUS
 
 class TestLobbyScreen(unittest.TestCase):
     def setUp(self):
-        self.root = tk.Tk()
-        self.root.withdraw()
+        try:
+            self.root = tk.Tk()
+            self.root.withdraw()
+        except tk.TclError:
+            self.skipTest("Tkinter engine not available.")
+            return
 
         self.mock_manager = MagicMock()
         self.mock_manager.on_start_game = MagicMock()

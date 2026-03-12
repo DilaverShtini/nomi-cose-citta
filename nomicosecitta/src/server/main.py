@@ -8,6 +8,7 @@ root_dir = os.path.dirname(os.path.dirname(current_dir))
 sys.path.append(root_dir)
 
 from src.server.game_server import GameServer
+from src.server.replication import ReplicationManager
 from src.common.constants import DEFAULT_SERVER_HOST, DEFAULT_SERVER_PORT
 
 
@@ -29,13 +30,6 @@ def parse_args():
         default = DEFAULT_SERVER_PORT,
         help = f"Server port (default: {DEFAULT_SERVER_PORT})"
     )
-    parser.add_argument(
-        "--role",
-        type = str,
-        choices = ["auto", "primary", "backup"],
-        default = "auto",
-        help = "Server role: auto (default), primary, or backup"
-    )
     return parser.parse_args()
 
 async def run_server(host, port):
@@ -50,52 +44,32 @@ async def run_server(host, port):
     server = GameServer(host, port)
     try:
         await server.start()
-    except KeyboardInterrupt:
-        print("\n[SHUTDOWN] Server stopping by user request...")
+    except BaseException as e:
+        print(f"\n[SHUTDOWN/CRASH] Server stopped: {e}")
+        server.is_shutting_down = True
     finally:
+        server.is_shutting_down = True
         await server.stop()
 
-async def run_with_replication(host, port, role):
+async def run_with_replication(host, port):
     """
     Start server with Primary/Backup replication.
-
-    Args:
-        host: Server host address.
-        port: Server port.
-        role: 'auto', 'primary', or 'backup'
-
-    To be implemented in Sprint 4:
-    - 'auto': Use heartbeat lock to determine role
-    - 'primary': Force primary role
-    - 'backup': Force backup role (monitor and wait)
     """
-    # TODO Sprint 4: Import and use replication module
-    # from src.server.replication import ReplicationManager
-    # replication = ReplicationManager(role)
-    # replication.start(lambda: run_server(host, port))
     
-    # For now, just run as standalone server
-    print(f"[INFO] Role '{role}' requested - replication not yet implemented")
-    print(f"[INFO] Running as standalone server...")
-    await run_server(host, port)
+    async def start_server():
+        await run_server(host, port)
+        
+    replication = ReplicationManager(start_server)
+    try:
+        await replication.start()
+    except asyncio.CancelledError:
+        pass
+    finally:
+        await replication.stop()
 
 def main():
     args = parse_args()
-
-    print("=" * 50)
-    print("  NOMI, COSE, CITTÀ - Game Server")
-    print("=" * 50)
-    print(f"  Host: {args.host}")
-    print(f"  Port: {args.port}")
-    print(f"  Role: {args.role}")
-    print("=" * 50)
-    
-    if args.role == "auto":
-        # Default: run without replication for now
-        asyncio.run(run_server(args.host, args.port))
-    else:
-        # Primary/Backup mode requested
-        asyncio.run(run_with_replication(args.host, args.port, args.role))
+    asyncio.run(run_with_replication(args.host, args.port))
 
 if __name__ == "__main__":
     main()
