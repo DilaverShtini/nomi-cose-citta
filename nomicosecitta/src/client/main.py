@@ -150,6 +150,7 @@ class ClientController:
             return
         print(f"[CONTROLLER] Unexpected disconnection: {reason}")
         self._reconnecting = True
+        self.root.after(0, self.gui.pause_timers)
         self.root.after(0, lambda: self.overlay.show(reason))
         asyncio.run_coroutine_threadsafe(self._async_reconnect(), self.loop)
 

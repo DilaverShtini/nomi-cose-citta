@@ -354,6 +354,17 @@ class GameScreen(BaseScreen):
         self.update_status("Time's up! Waiting for the results…")
         self._timer.set_expired()
 
+    def pause_timers(self):
+        if hasattr(self, '_timer_job'):
+            self.frame.after_cancel(self._timer_job)
+            del self._timer_job
+
+        if hasattr(self, '_voting_timer_job'):
+            self.frame.after_cancel(self._voting_timer_job)
+            del self._voting_timer_job
+
+        self.update_status("Connessione persa. Timer in pausa...")
+
     # Voting phase
 
     def build_voting_ui(self, words_to_vote: dict, my_username: str, duration: int = 0):

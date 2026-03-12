@@ -155,6 +155,10 @@ class GUIManager:
     def update_scoreboard(self, scores: dict, round_scores: dict = None):
         self.game.update_scoreboard(scores, round_scores)
 
+    def pause_timers(self):
+        if self._current_screen == Screen.GAME:
+            self.game.pause_timers()
+
     @property
     def players_list(self):
         return self.lobby.player_list
