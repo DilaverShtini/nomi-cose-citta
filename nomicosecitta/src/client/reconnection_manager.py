@@ -54,10 +54,10 @@ class ReconnectionManager:
         try:
             with open(path, encoding="utf-8") as fh:
                 data = json.load(fh)
-            print(f"[ReconnectionManager] Config loaded from '{path}'")
+            print(f"[ReconnectionManager] Config loaded from config.json")
             return data
         except FileNotFoundError:
-            print(f"[ReconnectionManager] config.json not found at '{path}'. "
+            print(f"[ReconnectionManager] config.json not found. "
                   "Using built-in defaults.")
             return {}
         except json.JSONDecodeError as exc:

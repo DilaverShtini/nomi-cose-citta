@@ -313,7 +313,7 @@ class GameSession:
             self.current_round.categories,
             self.current_round.letter,
         )
-        print(f"[SESSION] Validation done. words_to_vote={self.words_to_vote}")
+        print(f"[SESSION] Validation done. Sending words to vote.")
 
     def _get_voting_duration(self) -> int:
         n = len(self.current_round.categories)
@@ -385,7 +385,6 @@ class GameSession:
             self.scores[user] = self.scores.get(user, 0) + pts
 
         self.server.save_state()
-        print(f"[SESSION] Global scores: {self.scores}")
 
         await self.server.broadcast(Message(
             type=MessageType.EVT_SCORE_UPDATE,

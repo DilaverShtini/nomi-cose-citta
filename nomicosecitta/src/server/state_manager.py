@@ -59,9 +59,9 @@ class StateManager:
                 os.fsync(f.fileno())
 
             os.replace(temp_filepath, self.filepath)
-            print(f"[STATE MANAGER] Stato salvato in modo sicuro in {self.filepath}")
+            print(f"[STATE MANAGER] State saved to shared_data/state.json")
         except Exception as e:
-            print(f"[STATE MANAGER] Errore durante il salvataggio: {e}")
+            print(f"[STATE MANAGER] Error during saving: {e}")
             if os.path.exists(temp_filepath):
                 os.remove(temp_filepath)
 
@@ -76,5 +76,5 @@ class StateManager:
             with open(self.filepath, 'r', encoding='utf-8') as f:
                 return json.load(f)
         except Exception as e:
-            print(f"[STATE MANAGER] Errore durante la lettura: {e}")
+            print(f"[STATE MANAGER] Error during reading: {e}")
             return None

@@ -55,7 +55,6 @@ async def run_with_replication(host, port):
     """
     Start server with Primary/Backup replication.
     """
-    print(f"[INFO] Starting replication manager...")
     
     async def start_server():
         await run_server(host, port)
@@ -70,14 +69,6 @@ async def run_with_replication(host, port):
 
 def main():
     args = parse_args()
-
-    print("=" * 50)
-    print("  NOMI, COSE, CITTÀ - Game Server")
-    print("=" * 50)
-    print(f"  Host: {args.host}")
-    print(f"  Port: {args.port}")
-    print("=" * 50)
-
     asyncio.run(run_with_replication(args.host, args.port))
 
 if __name__ == "__main__":

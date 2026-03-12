@@ -85,7 +85,7 @@ class MessageHandler:
         words_to_vote = msg.payload.get("words_to_vote", {})
         c.my_votes    = {cat: {} for cat in words_to_vote}
         duration      = msg.payload.get("duration", 180)
-        print(f"[MSG_HANDLER] Voting phase — words: {words_to_vote}")
+        print(f"[MSG_HANDLER] Voting phase")
         self._after(lambda: c.gui.show_voting_phase(words_to_vote, c.username, duration))
 
     def _on_score_update(self, msg: Message) -> None:
@@ -108,7 +108,6 @@ class MessageHandler:
         self._after(lambda: c.gui.append_log(summary))
         self._after(lambda: c.gui.update_game_status(
             "Round ended — next round starting soon…"))
-        print(f"[MSG_HANDLER] Global scores: {global_scores}")
 
     def _on_game_over(self, msg: Message) -> None:
         c      = self._ctrl

@@ -66,7 +66,7 @@ class ClientHandler:
 
         elif "votes" in payload:
             votes = payload.get("votes", {})
-            print(f"[SUBMIT_VOTES] Received from {self.username}: {votes}")
+            print(f"[SUBMIT_VOTES] Received from {self.username}")
             await self.server.session.receive_votes(self.username, votes)
 
         else:
@@ -84,7 +84,7 @@ class ClientHandler:
                 )
                 await self.send(err_msg.to_bytes())
                 return
-            print(f"[RECOVERY] Il giocatore {username} si è riconnesso alla partita in corso!")
+            print(f"[RECOVERY] The user {username} has reconnected to the ongoing game!")
 
         elif not username or self.server.is_username_taken(username):
             err_msg = Message(
@@ -96,7 +96,7 @@ class ClientHandler:
         self.username = username
 
         if hasattr(self.server, 'admin_username') and self.server.admin_username == username:
-            print(f"[RECOVERY] L'Admin originale {username} è tornato.")
+            print(f"[RECOVERY] The original admin {username} has returned.")
         else:
             self.server.set_admin(username)
 
@@ -141,7 +141,6 @@ class ClientHandler:
                 return
             categories = payload.get("categories", [])
             self.server.set_category_votes(self.username, categories)
-            print(f"[VOTE CATS] {self.username}: {categories}")
 
         else:
             print(f"[WARN] Unknown CMD_LOBBY_ACTION action_type={action_type!r}")
