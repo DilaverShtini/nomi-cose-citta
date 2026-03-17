@@ -116,10 +116,10 @@ class MessageHandler:
             
             if len(best_players) > 1:
                 if len(best_players) == len(round_scores):
-                    summary = f"── Round {round_number} done · Pareggio generale (+{max_score} pts) ──"
+                    summary = f"── Round {round_number} done · Tie (+{max_score} pts) ──"
                 else:
                     winners_str = ", ".join(best_players)
-                    summary = f"── Round {round_number} done · Pareggio in testa: {winners_str} (+{max_score} pts) ──"
+                    summary = f"── Round {round_number} done · Best tie: {winners_str} (+{max_score} pts) ──"
             else:
                 winner = best_players[0]
                 summary = f"── Round {round_number} done · best: {winner} +{max_score} pts ──"
