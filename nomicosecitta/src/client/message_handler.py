@@ -110,11 +110,22 @@ class MessageHandler:
 
         self._after(lambda: c.gui.update_scoreboard(global_scores, round_scores))
 
-        winner = max(round_scores, key=round_scores.get) if round_scores else None
-        summary = (
-            f"── Round {round_number} done · best: {winner} +{round_scores[winner]} pts ──"
-            if winner else f"── Round {round_number} done ──"
-        )
+        if round_scores:
+            max_score = max(round_scores.values())
+            best_players = [user for user, score in round_scores.items() if score == max_score]
+            
+            if len(best_players) > 1:
+                if len(best_players) == len(round_scores):
+                    summary = f"── Round {round_number} done · Pareggio generale (+{max_score} pts) ──"
+                else:
+                    winners_str = ", ".join(best_players)
+                    summary = f"── Round {round_number} done · Pareggio in testa: {winners_str} (+{max_score} pts) ──"
+            else:
+                winner = best_players[0]
+                summary = f"── Round {round_number} done · best: {winner} +{max_score} pts ──"
+        else:
+            summary = f"── Round {round_number} done ──"
+
         self._after(lambda: c.gui.append_log(summary))
         self._after(lambda: c.gui.update_game_status(
             "Round ended — next round starting soon…"))
