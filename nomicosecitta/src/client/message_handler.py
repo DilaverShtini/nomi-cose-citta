@@ -86,7 +86,15 @@ class MessageHandler:
         words_to_vote   = msg.payload.get("words_to_vote", {})
         c.my_votes      = {cat: {} for cat in words_to_vote}
         duration        = msg.payload.get("duration", 180)
+        letter          = msg.payload.get("letter")
+        round_number    = msg.payload.get("round_number")
         is_recovery     = msg.payload.get("is_recovery", False)
+
+        if letter:
+            self._after(lambda: c.gui.update_game_letter(letter))
+        if round_number:
+            self._after(lambda: c.gui.update_round_info(round_number))
+
         print(f"[MSG_HANDLER] Voting phase")
         self._after(lambda: c.gui.show_voting_phase(words_to_vote, c.username, duration, is_recovery))
 

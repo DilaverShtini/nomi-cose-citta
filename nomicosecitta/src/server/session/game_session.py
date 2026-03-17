@@ -177,7 +177,9 @@ class GameSession:
                 payload={
                     "words_to_vote": self.words_to_vote,
                     "duration":      time_left,
-                    "is_recovery":  True
+                    "is_recovery":  True,
+                    "letter":        self.current_round.letter,
+                    "round_number":  self.current_round_number
                 },
             ).to_bytes())
 
