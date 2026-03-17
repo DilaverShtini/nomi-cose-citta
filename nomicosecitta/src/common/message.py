@@ -34,7 +34,7 @@ class GameState(StrEnum):
     WAITING_INPUT = auto()
     VOTING = auto()
     SCORING = auto()
-    ENDED = auto()
+    GAME_OVER = auto()
 
 
 @dataclass

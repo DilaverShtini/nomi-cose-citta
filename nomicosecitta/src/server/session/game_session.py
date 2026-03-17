@@ -406,7 +406,7 @@ class GameSession:
             (u for u, s in self.scores.items() if s >= TARGET_SCORE), None
         )
         if winner:
-            self.state = GameState.ENDED
+            self.state = GameState.GAME_OVER
             print(f"[SESSION] {winner} wins!")
             await self.server.broadcast(Message(
                 type=MessageType.EVT_GAME_OVER,
