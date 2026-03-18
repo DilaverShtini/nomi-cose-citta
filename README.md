@@ -9,7 +9,7 @@ This project reimagines the traditional pen-and-paper game as a modern multiplay
 ## ✨ Features
 
 ### Core Gameplay
-- **Real-time multiplayer**: Multiple players can join shared game rooms
+- **Real-time multiplayer**: Multiple players can join shared game
 - **Category-based challenges**: Write words matching given letters and categories
 - **Collaborative validation**: Players vote to accept or reject each other's answers
 - **Point system**: First player to reach the target score wins
@@ -19,7 +19,6 @@ This project reimagines the traditional pen-and-paper game as a modern multiplay
 - **Hybrid architecture**: Central server with P2P client communication
 - **Fault Tolerance**: Automatic recovery from disconnections and crashes
 - **State consistency**: Synchronized game state across all nodes
-- **Session management**: Robust room creation and player management
 - **Lightweight GUI**: User-friendly interface for seamless interaction
 
 ## 🏗️ System Architecture
@@ -27,7 +26,7 @@ This project reimagines the traditional pen-and-paper game as a modern multiplay
 ### Components
 
 #### Central Server
-- Manages game sessions and rooms
+- Manages game sessions
 - Coordinates game rounds and timing
 - Handles player synchronization
 - Maintains authoritative game state
@@ -45,10 +44,11 @@ This project reimagines the traditional pen-and-paper game as a modern multiplay
 
 ## 🎯 How to Play
 
-1. **Join a Room**: Connect to the server and either create a new room
-2. **Wait for Players**: Start the game when all your friends have joined the room
+1. **Join the game**: Connect to the server
+2. **Lobby & Configuration**: The administrator configures the game mode, then starts
+   the match for all participants in the lobby.
 3. **Game Round**: 
-   - A letter are presented
+   - A random letter are presented
    - Write words starting with that letter for each category
    - Submit your answers before time runs out
 4. **Validation Phase**:
@@ -61,7 +61,7 @@ This project reimagines the traditional pen-and-paper game as a modern multiplay
 ## 🛡️ Fault Tolerance
 
 ### Server Recovery
-- Persistent game state storage
+- Session state persistance
 - Automatic state restoration after crashes
 - Client reconnection handling
 
@@ -81,8 +81,8 @@ The system ensures consistency through:
 ## 👥 Team
 
 - **Chiara Giangiulli** - chiara.giangiulli@studio.unibo.it
-- **Dilaver Shtini** - dilaver.shtini@studio.unibo.it
 - **Giovanni Pisoni** - giovanni.pisoni@studio.unibo.it
+- **Dilaver Shtini** - dilaver.shtini@studio.unibo.it
 
 ## 📄 License
 
@@ -94,3 +94,7 @@ This project is licensed under the GPL-3.0 license - see the [LICENSE](LICENSE) 
 - Built as part of the Distributed Systems course at University of Bologna
 
 **Happy Gaming! 🎉**
+
+## 📄 Report
+
+For a more in-depth analysis of the architecture, networking, and fault-tolerance mechanisms, please read our [official project report](https://github.com/ChiaraGiangiulli/ds-report).

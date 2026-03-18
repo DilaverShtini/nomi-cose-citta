@@ -177,7 +177,9 @@ class GameSession:
                 payload={
                     "words_to_vote": self.words_to_vote,
                     "duration":      time_left,
-                    "is_recovery":  True
+                    "is_recovery":  True,
+                    "letter":        self.current_round.letter,
+                    "round_number":  self.current_round_number
                 },
             ).to_bytes())
 
@@ -404,7 +406,7 @@ class GameSession:
             (u for u, s in self.scores.items() if s >= TARGET_SCORE), None
         )
         if winner:
-            self.state = GameState.ENDED
+            self.state = GameState.GAME_OVER
             print(f"[SESSION] {winner} wins!")
             await self.server.broadcast(Message(
                 type=MessageType.EVT_GAME_OVER,
